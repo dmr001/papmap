@@ -1,8 +1,6 @@
 <template>
-  <!DOCTYPE html>
-  <html>
-  <body>
 
+  <div>
   <!--
   <div>
     Immediate risk: {{ riskImmediate }} <br/>
@@ -120,9 +118,8 @@
     </v-badge>
   </div>
 
+  </div>
 
-  </body>
-  </html>
 </template>
 
 <script>
@@ -147,7 +144,7 @@ export default {
       return this.xRiskImmediate + 8 + ',22 ' + this.xRiskImmediate + 16 + ',22 ' + this.xRiskImmediate + 12 + ',28'
     },
     xRisk5y: function () {
-      return this.risk5y <= 0.55 ? this.risk5y * 400 : this.risk5y * 42.666;
+      return this.risk5y <= 0.55 ? this.risk5y * 400 : 220 + (this.risk5y - 0.55) * 19.4;
     },
     xRisk5yLegend: function () {
       return this.xRisk5y > 200 ? this.xRisk5y - 110 : this.xRisk5y + 35;
