@@ -135,7 +135,7 @@ export default {
       return this.riskImmediate * 4;
     },
     xRiskImmediateLegend: function () {
-      return this.xRiskImmediate > 200 ? this.xRiskImmediate - 80 : this.xRiskImmediate + 35;
+      return this.xRiskImmediate > 200 ? this.xRiskImmediate - 140 : this.xRiskImmediate + 35;
     },
     xRiskImmediatePlus: function (x) {
       return this.xRiskImmediate + x;

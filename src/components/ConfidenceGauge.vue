@@ -6,8 +6,8 @@
       <svg height="50" width="55">
         <defs>
           <linearGradient id="grad1" x1="0%" y1="100%" x2="0%" y2="0%">
-            <stop offset="0%" style="stop-color:rgb(0,0,0);stop-opacity:1" />
-            <stop offset="100%" style="stop-color:rgb(0,0,200);stop-opacity:1" />
+            <stop offset="0%" style="stop-color:rgb(50,50,200);stop-opacity:1" />
+            <stop offset="100%" style="stop-color:rgb(50,50,250);stop-opacity:1" />
           </linearGradient>
           <pattern id="diagonalHatch" patternUnits="userSpaceOnUse" width="4" height="4">
             <path d="M-1,1 l2,-2

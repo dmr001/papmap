@@ -94,7 +94,7 @@
                         <strong>{{ result.ecc }}</strong>
                       </span>
                   <span v-if="result.excision">
-                        Excisional procedure
+                        Excision
                         <strong>{{ result.excision }}</strong>
                       </span>
                   <span v-if="result.ablation">
@@ -174,12 +174,13 @@
 
 
             <v-list-item v-if="recommendations[date][scenario] && recommendations[date][scenario].figure" >
-              <v-list-item-title v-for="figure in recommendations[date][scenario].figure" :key="figure.file">
+
+              <v-list-item-title v-for="(figure) in recommendations[date][scenario].figure" :key="figure.file">
                 <!-- <embed width="191" height="207" name="plugin"
                        :src="recommendations[date][scenario].figure" type="application/pdf"> -->
-                <a :href="`/${figure.file}`" target="_blank">See {{ figure.title }}</a>
-                <pdf src="`/${figure.file}`"></pdf>
 
+                <a :href="`/${figure.file}`" target="_blank"> {{ figure.title }}</a>
+                <thumbnail :filename="figure.file" :url="`http://${location.host}/${URLify(figure.file)}`"></thumbnail>
 
               </v-list-item-title>
             </v-list-item>
@@ -215,7 +216,7 @@
 import Graph from "@dagrejs/graphlib/lib/graph";
 import RiskGauge from "@/components/RiskGauge";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
-import pdf from 'vue-pdf';
+import Thumbnail from "@/components/Thumbnail";
 import colors from 'vuetify/lib/util/colors'
 
 
@@ -237,6 +238,25 @@ const FIGURE = {
   '13': { file: 'figures/Figure 13.pdf', title: "Figure 13" },
 }
 
+// eslint-disable-next-line no-unused-vars
+const HEADINGS = {
+  pap: 'Current PAP Result',
+  hpv: 'Current HPV Result',
+  priorPapAndHPV: 'PAST HISTORY (most recent)',
+  priorPriorPap: 'PAST HISTORY (previous 2)',
+  papAfterColpo: 'Post-Colpo Test Result - PAST HISTORY',
+  papBeforeColpo: 'Pre-Colpo Test Result',
+  referralPap: 'Referral Screen Result',
+  colpoResult: 'Biopsy Result',
+  preTxColpoResult: 'Biopsy Result Before Treatment',
+  management: 'Management',
+  cin3risk: 'CIN3+ Immediate risk (%)',
+  cin3risk5y: 'CIN3+ 5 year risk  (%)',
+  confidence: 'Management Confidence Probability',
+  treatment: 'Treatment',
+  margins: 'Margins'
+
+}
 
 
 const PROCEDURE = {
@@ -548,7 +568,7 @@ function determineScenario(dailyResults, date) {
   // }
 
 
-  // We're not in scenario 3, 4 or 5 so now we decide between 1 and 2
+  // We're not in scenario 3, 4 or 5 or 6 so now we decide between 1 and 2
   // We'll start by assuming we're in scenario 1, then go back 5 years looking for a positive HPV, ASCUS or LSIL
   // We will look at the prior result even if it's more than 5 years ago to handle flaky people who didn't return for
   // screening for 5 years
@@ -769,6 +789,7 @@ function combineDailyResults (ccsResults) {
           // TODO: Assumes the excision comes first; we need a general way of splitting up arrays here as scalars
           // Could probably just swap them if needed
           [ dailyResult[date].excision, dailyResult[date].margins ] = ccsResults[i].result;
+
         } else {
           dailyResult[date].excision = ccsResults[i].result;
         }
@@ -891,17 +912,19 @@ function ageInRange(age, node) {
 // Returns array of matches per scenario
 // eslint-disable-next-line no-unused-vars
 function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date) {
-  let node;
+  let node, childNodeList, childNodeName, i
 
-  console.log(`Burrowing: scenario ${scenario}, node ${nodeName}/ ${scenarioTree.outEdges(nodeName).length} children:`)
+  console.log(`Burrowing: scenario ${scenario}, node ${nodeName}: children ${scenarioTree.outEdges(nodeName).length} children:`)
   console.log(scenarioTree.outEdges(nodeName));
 
   date = getPriorDate(dailyResults, date)
   if (date) {   // We haven't run out of results yet
     switch (scenario) {
       case SCENARIO.papAfterTreatment:    // Scenario 5
-        (scenarioTree.outEdges(nodeName)).forEach(childNodeName => {
-          childNodeName = childNodeName['w'];
+        childNodeList = scenarioTree.outEdges(nodeName);
+        // (scenarioTree.outEdges(nodeName)).forEach(childNodeName => {
+        for (i = 0; i < childNodeList.length; i++) {
+          childNodeName = childNodeList[i]['w'];
 
           // The next node down will either be a Bx result before treatment or prior Pap
           node = scenarioTree.node(childNodeName);
@@ -915,15 +938,34 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date) {
                 }
                 return (node)
               } else {
-                burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date);
+                node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date);
+                return (node);
               }
           }
-        })
+        }
         break;
     }
   }
   return null;
 }
+
+//
+// Add a reference ot a figure if it isn't already there
+//
+function addFigure(figures, figure) {
+
+
+  let i;
+
+  for (i = 0; i < figures.length; i++) {
+    if (figures[i].title === `Figure ${figure}`) {
+      return;
+    }
+  }
+  figures.push(FIGURE[figure.toString()]);
+
+}
+
 
 // Given a patient and their cervical cancer screening results, go through each scenario
 // and come up with recommendations for it
@@ -942,14 +984,18 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
   let originalDate = date;
 
   let nodeName;
+  let hpvResult, papResult;
 
   let age = dailyResults[date].age
+  let figure = [];
 
 
   // Not every scenario will be appropriate for every patient, and we'll come up with the one to display by default, but we want the others visible too
   // on the chance there's useful information there
   for (i = 0; i < scenarioList.length; i++) {
     date = originalDate;        // Start at the most recent result for each search
+    match[i] = {};
+
     console.log(`makeRecommendations Scenario ${i}, date ${date}, age ${age}`);
     // GO back to an unmodified dailyResults so we can search for the HSIL+ and High Grade cases again...
     // dailyResults = JSON.parse(JSON.stringify(dailyResultsCopy));
@@ -961,6 +1007,22 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
       dailyResults[date].hpv = '';
     }
 
+    if (dailyResults[date].pap === PAPRESULT.ais) {
+      // figure.push(FIGURE['11']);
+      addFigure(figure, 11);
+    }
+
+    if (dailyResults[date].pap === PAPRESULT.agc || dailyResults.pap === PAPRESULT.agcfn) {
+      // figure.push(FIGURE['11']);
+      addFigure(figure, 3);
+    }
+
+    if (age < 25 && dailyResults[date].pap.isInList(PAPRESULT.ascus, PAPRESULT.lsil, PAPRESULT.asch, PAPRESULT.hsil)) {
+      addFigure(figure, 12);
+    }
+
+    // TODO: Absent transformation zone: Figure 6
+    // TODO: Unsatisfactory cytology: Figure 5
 
     switch (i) {
         // Scenario 1, Initial management of abnormal screening results
@@ -1006,6 +1068,7 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                         console.log(childNode);
                         // node = childNode;
                         match[i] = scenarioTree.node(childNodeName);
+                        match[i].figure.concat(figure);
                         if (isNaN(match[i].cin3risk5y)) {
                           match[i].cin3risk5y = -1;
                         }
@@ -1027,6 +1090,7 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                       console.log(childNode);
                       // node = childNode;
                       match[i] = scenarioTree.node(childNodeName);
+                      match[i].figure.concat(figure);
 
                       if (isNaN(match[i].cin3risk5y)) {
                         match[i].cin3risk5y = -1;
@@ -1097,6 +1161,8 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                           console.log(`>> Level ${level} match scenario 2 childNode:`);
                           console.log(childNode);
                           match[i] = scenarioTree.node(childNodeName);
+                          match[i].figure.concat(figure);
+
                           if (isNaN(match[i].cin3risk5y)) {
                             match[i].cin3risk5y = -1;
                           }
@@ -1118,6 +1184,8 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                         console.log(`>> Level ${level} match scenario 2 childNode:`);
                         console.log(childNode);
                         match[i] = scenarioTree.node(childNodeName);
+                        match[i].figure.concat(figure);
+
                         if (isNaN(match[i].cin3risk5y)) {
                           match[i].cin3risk5y = -1;
                         }
@@ -1159,6 +1227,8 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                 // It doesn't matter what came before; they are getting treated
                 console.log(`(c1) Level ${level} match is a leaf.`);
                 match[i] = scenarioTree.node(nodeName);
+                match[i].figure.concat(figure);
+
                 console.log("Here's our match:" + JSON.stringify(match[i]))
 
                 if (isNaN(match[i].cin3risk5y)) {
@@ -1219,6 +1289,8 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                     console.log(`To ${childNodeName}`)
                   }
                   match[i] = scenarioTree.node(childNodeName);
+                  match[i].figure.concat(figure);
+
                   if (isNaN(match[i].cin3risk5y)) {
                     match[i].cin3risk5y = -1;
                   }
@@ -1293,6 +1365,8 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                             console.log(`>> Level ${level} match scenario 2 childNode:`);
                             console.log(childNode);
                             match[i] = scenarioTree.node(childNodeName);
+                            match[i].figure.concat(figure);
+
                             if (isNaN(match[i].cin3risk5y)) {
                               match[i].cin3risk5y = -1;
                             }
@@ -1314,6 +1388,8 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
                           console.log(`>> Level ${level} match scenario 2 childNode:`);
                           console.log(childNode);
                           match[i] = scenarioTree.node(childNodeName);
+                          match[i].figure.concat(figure);
+
                           if (isNaN(match[i].cin3risk5y)) {
                             match[i].cin3risk5y = -1;
                           }
@@ -1344,16 +1420,70 @@ function makeRecommendations(patient, dailyResults, scenarioTree, date) {
 
         case SCENARIO.papAfterTreatment:  // Scenario 5
           console.log(`makeRecommendations: Handling scenario ${i}.`);
-          nodeName = `${i}|${dailyResults[date].pap}|${dailyResults[date].hpv}`;
-          console.log(`(5) Looking for ${nodeName}`);
-          if (scenarioTree.hasNode(nodeName)) {
+          // In scenario 5, we dont' distinguish between HPV16/18 and HPV positive, so convert 16/18 to HPV positive
+          papResult = dailyResults[date].pap;
+          hpvResult = dailyResults[date].hpv;
+          if (hpvResult === HPVRESULT.hpv18Positive || hpvResult === HPVRESULT.hpv16Positive || hpvResult === "HPV16+" || hpvResult === "HPV18+") {
+            hpvResult = HPVRESULT.hpvPositive;
+          }
 
+          nodeName = `${i}|${papResult}|${hpvResult}`;
+          console.log(`(5) Looking for ${nodeName}, age ${age}`);
+          if (scenarioTree.hasNode(nodeName)) {
+            console.log("(5) Found it.")
+            node = scenarioTree.node(nodeName);
             if (ageInRange(age, node)) {
+              console.log("Off to burrow.")
               match[i] = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date)
+
+              if (match[i]) {
+                match[i].figure.concat(figure);
+              }
+
             }
           }
           break;
 
+        case SCENARIO.postTreatment: // Scenario 6
+          console.log(`makeRecommendations: handling scenario ${i}.`);
+          console.log(dailyResults[date]);
+          if (dailyResults[date].excision) {
+            nodeName = `${i}|Excision|${dailyResults[date].margins == EXCISIONRESULT.marginsNegative ? 'Negative' : 'Positive'}`;
+
+          } else if (dailyResults[date].ablation) {
+            nodeName = `${i}|Ablation|`;
+
+          }
+
+          console.log(`Looking for node ${nodeName}`)
+          if (scenarioTree.hasNode(nodeName)) {
+            node = scenarioTree.node(nodeName);
+            console.log("Found it.")
+            date = getPriorDate(dailyResults, date);
+            if (date) { // We haven't run out of results
+              console.log(`Looking for results on ${date}`);
+              console.log(dailyResults[date]);
+              childNode = {};
+              if (!dailyResults[date].colposcopy) {
+                dailyResults[date].colposcopy = '';
+              }
+              (scenarioTree.outEdges(nodeName)).forEach(childNodeName => {
+                childNodeName = childNodeName['w'];
+                console.log(`Do the results match ${childNodeName}? Node contents:`)
+                childNode = scenarioTree.node(childNodeName);
+                console.log(childNode);
+
+                // Assumes the child node is a leaf
+                if (childNode && (childNode.bxResult === dailyResults[date].colposcopy && ageInRange(age, childNode))) {
+                  console.log(`They do.`);
+                  match[i] = scenarioTree.node(childNodeName);
+                  match[i].figure.concat(figure);
+
+                }
+              });
+            }
+          }
+          break;
     }
   }
   return match;
@@ -1568,7 +1698,9 @@ function makeScenarioTree(scenarioTable) {
           }
 
           if (papResult === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
-            figure.push(FIGURE['3']);
+            // figure.push(FIGURE['3']);
+            addFigure(figure, 3);
+
           }
 
           // Entries in the ASCCP table like HSIL+ stand for a bunch of possible Pap results
@@ -1579,9 +1711,11 @@ function makeScenarioTree(scenarioTable) {
             papResults = papExpansion[papResult];
             console.log(`Handling synonyms of ${papResult}: ${papResults}`);
             papResults.forEach(papSynonym => {
-              if (papSynonym === PAPRESULT.ais) {
-                figure.push(FIGURE['11']);
-              }
+              // if (papSynonym === PAPRESULT.ais) {  // Has to compare ot actual Pap result, not a synonym
+              //   // figure.push(FIGURE['11']);
+              //   addFigure(figure, 11);
+              //
+              // }
               synonymNodeName = `${i}|${papSynonym}|${hpvResult}`
               node = {
                 procedure: papSynonym,
@@ -1817,10 +1951,12 @@ function makeScenarioTree(scenarioTable) {
           }
 
           if (histologyResult === COLPORESULT.cin3) {
-            figure.push(FIGURE['8']);
+            // figure.push(FIGURE['8']);
+            addFigure(figure, 8);
           }
           if (histologyResult === COLPORESULT.cin2 || histologyResult === COLPORESULT.cin3) {
-            figure.push(FIGURE['7']);
+            // figure.push(FIGURE['7']);
+            addFigure(figure, 7);
           }
           node = {
             histologyResult: histologyResult,
@@ -1850,7 +1986,9 @@ function makeScenarioTree(scenarioTable) {
               //
               // Handle HSIL+ by storing it in a bunch of synonym nodes
               if (papResult === PAPRESULT.asch && histologyResult === COLPORESULT.cin1) {
-                figure.push(FIGURE['10']);
+                // figure.push(FIGURE['10']);
+                addFigure(figure, 10);
+
               }
 
               if (papResult === 'HSIL+') {
@@ -1859,7 +1997,9 @@ function makeScenarioTree(scenarioTable) {
                 papExpansion[papResult].forEach(papSynonym => {
                   var synonymNodeName = `${i}-${j}-${k}|${papSynonym}|${hpvResult}`;
                   if (papSynonym === PAPRESULT.hsil && histologyResult === COLPORESULT.cin1) {
-                    figure.push(FIGURE['9']);
+                    // figure.push(FIGURE['9']);
+                    addFigure(figure, 9);
+
                   }
                   node = {
                     procedure: papSynonym,
@@ -1915,28 +2055,68 @@ function makeScenarioTree(scenarioTable) {
               papResult = '';
             } else if (papExpansion[papResult]) {
               papExpansion[papResult].forEach(papSynonym => {
-                  previousNodeName = `${i}|${papSynonym}|${hpvResult}`;
-                  if (papSynonym === PAPRESULT.ais) {
-                    figure.push(FIGURE['11']);
+                previousNodeName = `${i}|${papSynonym}|${hpvResult}`;
+                // if (papSynonym === PAPRESULT.ais) {
+                //   // figure.push(FIGURE['11']);
+                //   addFigure(figure, 11);
+                //
+                // }
+
+                node = {
+                  procedure: papSynonym,
+                  hpv: hpvResult,
+                  ageRange: scenarioTable[i][0][j]['Age'],
+                  scenario: i,
+                  management: scenarioTable[i][0][j]['Management'],
+                  cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
+                  cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
+                  confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
+                  leaf: false
+                };
+                if (!tree.hasNode(previousNodeName)) {
+                  tree.setNode(previousNodeName, node);
+                }
+
+
+                bxResult = scenarioTable[i][0][j]['Biopsy Result Before Treatment'];
+                k++;
+                // Turns out though even the Excel file says CIN 3, the published table (table 5A) lists CIN 2 or 3 for all
+                // https://journals.lww.com/jlgtd/Fulltext/2020/04000/Risk_Estimates_Supporting_the_2019_ASCCP.4.aspx
+                if (bxResult === 'CIN3') {   // ASCCP uses CIN3, Epic CIN 3
+                  bxResult = [COLPORESULT.cin2, COLPORESULT.cin3];
+                  // figure.push(FIGURE['7'])
+                  // console.log('!!! Adding figure 7')
+                  addFigure(figure, 7);
+                }
+                bxResult.forEach(bxResult => {
+                  if (bxResult === EXCISIONRESULT.cin2) {
+                    // figure.push(FIGURE['8'])
+                    addFigure(figure, 8);
+
                   }
                   node = {
-                    procedure: papSynonym,
-                    hpv: hpvResult,
-                    ageRange: scenarioTable[i][0][j]['Age'],
                     scenario: i,
-                    leaf: false
-                  };
-                  if (!tree.hasNode(previousNodeName)) {
-                    tree.setNode(previousNodeName, node);
+                    procedure: bxResult,
+                    figure: figure,
+                    management: scenarioTable[i][0][j]['Management'],
+                    cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
+                    cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
+                    confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
+                    leaf: true
                   }
-                  // tree.setParent(nodeName, previousNodeName);
+                  nodeName = `${node.scenario}-${j}-${k}|${node.procedure}`
+                  if (!tree.hasNode(nodeName)) {
+                    tree.setNode(nodeName, node)
+                  }
+
                   tree.setEdge(previousNodeName, nodeName);
+
                 });
 
-              }
-
+              });
+            }
           } else {
-            papResult = null;
+              papResult = null;
           }
 
           // Blank Pap result but Pap result hanging out in the HPV result.
@@ -2045,11 +2225,17 @@ function makeScenarioTree(scenarioTable) {
               // https://journals.lww.com/jlgtd/Fulltext/2020/04000/Risk_Estimates_Supporting_the_2019_ASCCP.4.aspx
               if (bxResult === 'CIN3') {   // ASCCP uses CIN3, Epic CIN 3
                 bxResult = [ COLPORESULT.cin2, COLPORESULT.cin3 ];
-                figure.push(FIGURE['7'])
+                // figure.push(FIGURE['7'])
+                console.log('!!!! Adding figure 7')
+
+                addFigure(figure, 7);
+
               }
               bxResult.forEach(bxResult => {
                 if (bxResult === EXCISIONRESULT.cin2) {
-                  figure.push(FIGURE['8'])
+                  // figure.push(FIGURE['8'])
+                  addFigure(figure, 8);
+
                 }
                 node = {
                   scenario: i,
@@ -2084,24 +2270,29 @@ function makeScenarioTree(scenarioTable) {
           node = {
             scenario: i,
             procedure: treatment,
-            ageRange: scenarioTable[i][0][j]['Age'],
+            margins: scenarioTable[i][0][j]['Margins'] || '',
             leaf: false,
           }
-          nodeName = `${node.scenario}|${node.procedure}|${bxResult}`;
+          nodeName = `${node.scenario}|${node.procedure}|${node.margins}`;
           if (!tree.hasNode(nodeName)) {
             tree.setNode(nodeName, node)
           }
           previousNodeName = nodeName;
 
+          if (papExpansion[bxResult]) {   // CIN1 -> CIN 1
+            bxResult = papExpansion[bxResult];
+          }
           node = {
             scenario: i,
             procedure: treatment,
             ageRange: scenarioTable[i][0][j]['Age'],
             margins: scenarioTable[i][0][j]['Margins'] || '',
             management: scenarioTable[i][0][j]['Management'],
+            bxResult: bxResult,
+            figure: figure,
             leaf: true,
           }
-          nodeName = `${i}-${j}-${k++}|${node.procedure}|${bxResult}|${node.margins}`;
+          nodeName = `${i}-${j}-${k++}|${node.procedure}|${bxResult}|${node.margins}|${node.ageRange}`;
           if (!tree.hasNode(nodeName)) {
             tree.setNode(nodeName, node);
           }
@@ -2125,6 +2316,8 @@ function makeScenarioTree(scenarioTable) {
   return tree;
 
 }
+
+
 
 //
 //
@@ -2205,6 +2398,7 @@ scenarioSelection = scenarioList[scenario];
 // console.log(`${JSON.stringify(recommendations)}`);
 // console.log(`Scenario ${scenario}`)
 console.log("Done with main.");
+console.log(location);
 
 
 
@@ -2232,12 +2426,15 @@ export default {
     limitLookback () {
       this.top4 = !this.top4;
       // console.log(`Top 4: ${this.top4}`)
+    },
+    URLify(string) {
+      return string.trim().replace(/\s/g, '%20');
     }
   },
   components: {
     RiskGauge,
     ConfidenceGauge,
-    pdf
+    Thumbnail
   },
   computed: {
     dailyResultsTop4: function () {
@@ -2252,6 +2449,7 @@ export default {
       return newObj;
     }
   },
+
   data () {
     return {
       patient: patient,
@@ -2267,6 +2465,7 @@ export default {
       scenarioList,      // The list of descriptions
       scenario,          // The selected scenario
       recommendations,
+      location,
       MGMT_COLOR
     }
   },
