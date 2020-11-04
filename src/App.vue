@@ -12,8 +12,8 @@
             </template>
             <v-card>
               <v-list dark>
-                <v-list-item @click="() => {}">
-                  <v-list-item-title>
+                <v-list-item >
+                  <v-list-item-title @click="showAboutDialog">
                     About
                   </v-list-item-title>
                 </v-list-item>
@@ -45,15 +45,25 @@
 <script>
 
 import Recommendations from "@/components/Recommendations";
+import About from "@/components/About";
+
 export default {
   name: 'App',
 
   components: {
     Recommendations,
+
+  },
+  methods: {
+    showAboutDialog: function () {
+      this.$dialog.show(About);
+    }
   },
 
-  data: () => ({
-    //
-  }),
+  data() {
+   return {
+     aboutDialog: true
+   }
+  }
 };
 </script>

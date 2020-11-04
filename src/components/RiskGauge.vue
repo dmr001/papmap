@@ -1,12 +1,6 @@
 <template>
 
   <div>
-  <!--
-  <div>
-    Immediate risk: {{ riskImmediate }} <br/>
-    5y risk: {{ risk5y }}
-  </div>
-  -->
 
   <div v-if="!isNaN(riskImmediate) && riskImmediate >= 4">
     <v-badge left bordered overlap :content="Math.round(10 * riskImmediate)/10 + '%'"
@@ -132,7 +126,7 @@ export default {
   },
   computed: {
     xRiskImmediate: function () {
-      return this.riskImmediate * 4;
+      return this.riskImmediate * 4 - 8;
     },
     xRiskImmediateLegend: function () {
       return this.xRiskImmediate > 200 ? this.xRiskImmediate - 140 : this.xRiskImmediate + 35;

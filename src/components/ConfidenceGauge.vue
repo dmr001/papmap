@@ -1,6 +1,5 @@
 <template>
-  <div>
-    <div v-if="!isNaN(confidence)">
+  <div v-if="confidence && !isNaN(confidence)">
     <v-badge left bordered overlap :content="Math.round(100 * confidence)/100"
              offset-x="22" offset-y="recommendations[scenario].confidence * 10">
       <svg height="50" width="55">
@@ -20,9 +19,9 @@
         <rect x="30" :y="yConfidence" width="8" :height="45 - yConfidence" fill="url(#grad1)" />
         <rect x="30" y="5" width="8" height="40"
               style="fill:gray;stroke:gray;stroke-width:0;fill-opacity:0.2;stroke-opacity:0.9" />
-<!--
-        <rect v-else x="30" y="5" width="8" height="40" fill="url(#diagonalHatch)" />
--->
+        <!--
+                <rect v-else x="30" y="5" width="8" height="40" fill="url(#diagonalHatch)" />
+        -->
 
 
 
@@ -52,10 +51,10 @@
 
     </v-badge>
   </div>
-    <div v-else class="text-caption">
-      (Confidence not available.)
-    </div>
+  <div v-else class="text-caption">
+    (Confidence not available.)
   </div>
+
 </template>
 
 <script>
