@@ -2,13 +2,12 @@
 
   <v-layout row justify-center>
 
-      <v-card  color="#385F73"
-               dark >
+      <v-card>
         <v-card-title class="text-subtitle-1">
           <img src="speculum.svg" width="100" height="100" class="pa-4">
            Pap<b>Map</b>
         </v-card-title>
-        <v-card-text>
+        <v-card-text color="#385F73">
           <v-divider></v-divider>
           <v-row>
             <v-col>
@@ -26,6 +25,9 @@
           <br/>
           Applies ASCCP 2020 cervical cancer screening guidelines to reconciled cytology, HPV, colposcopy and
           treatment results.
+          <br/><br/>
+         This software is designed to aid in the application of algorithms but
+          is not guaranteed perfect, and doesn't substitute for your medical judgment.
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>

@@ -11,6 +11,6 @@ Vue.use(VuetifyDialog);
 
 new Vue({
   vuetify,
-  VuetifyDialog,
+  // VuetifyDialog,
   render: h => h(App)
 }).$mount('#app')
