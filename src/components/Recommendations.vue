@@ -5,10 +5,10 @@
       <div class="col self-center mt-n2">
         <div class="text-caption">Age</div>
         <strong>{{ patient.age }}</strong>
-        <div class="text-caption" v-if="recommendations[date].age && recommendations[date].age != patient.age">today
+        <div class="text-caption" v-if="recommendations[date] && recommendations[date].age && recommendations[date].age != patient.age">today
         </div>
       </div>
-      <div class="col self-center mt-n2" v-if="recommendations[date].age && recommendations[date].age != patient.age">
+      <div class="col self-center mt-n2" v-if="recommendations[date] && recommendations[date].age && recommendations[date].age != patient.age">
         <div class="text-caption text--secondary">Back</div>
         <div class="text--secondary font-weight-bold"> {{ recommendations[date].age }}</div>
         <div class="text-caption text--secondary">then</div>
@@ -74,7 +74,7 @@
                 <tbody>
 
 
-                <tr v-for="result in (top4 ? dailyResultsTop4 : dailyResults)" :key="result.date">
+                <tr v-for="result in (top4 ? dailyResultsTop4 : dailyResults)" :key="result.date" @click="date = result.date">
 
                   <td class="px-1"
                       :style="{ backgroundColor: (date === result.date ? colors.blue.lighten5 : colors.grey.lighten4) }">
@@ -162,7 +162,9 @@
         </v-col>
 
         <v-col>
-          <v-card :style=" { backgroundColor: ((dailyResults[date] && dailyResults[date].missing) ? colors.blueGrey.lighten2 : colors.blueGrey.lighten5) }">
+          <v-card :style=" { backgroundColor: ((dailyResults[date] && (dailyResults[date].missing ||
+            (recommendations[date] && recommendations[date].immunocompromise && immunocompromiseSelection === 'Immunocompromised')))
+             ? colors.blueGrey.lighten2 : colors.blueGrey.lighten5) }">
             <v-card-title class="text-subtitle-1">
               Management recommendation
             </v-card-title>
@@ -172,45 +174,71 @@
 
               <v-row>
                 <v-col>
-                  <v-alert v-if="recommendations[date][scenario]" border="left" colored-border
-                           :color='MGMT_COLOR[recommendations[date][scenario].management]' elevation="1">
-                    {{ recommendations[date][scenario].management }}
+                  <v-alert v-if="recommendations[date].management" border="left" colored-border
+                           :color='MGMT_COLOR[recommendations[date].management]' elevation="1">
+                    {{ recommendations[date].management }}
 
                   </v-alert>
 
-                  <v-alert v-if="!recommendations[date][scenario]" border="left" colored-border color='grey'
+
+                  <v-alert v-else border="left" colored-border color='grey'
                            elevation="1">
                     No recommendation
                   </v-alert>
 
                 </v-col>
                 <v-col>
-                  <confidence-gauge v-if="recommendations[date][scenario]"
-                                    :confidence="recommendations[date][scenario].confidence"></confidence-gauge>
+                  <confidence-gauge v-if="recommendations[date]"
+                                    :confidence="recommendations[date].confidence"></confidence-gauge>
                 </v-col>
 
 
               </v-row>
             </v-card-subtitle>
             <v-card-text>
-              <span class="text-body-2">
-                <span  v-if="recommendations[date][scenario] && recommendations[date][scenario].notes">
-                    <i>{{ recommendations[date][scenario].notes }}</i>
+              <span class="text-body-2" v-if="recommendations[date]">
+                <span  v-if="recommendations[date] && recommendations[date].notes">
+                    <i>{{ recommendations[date].notes }}</i>
                 </span>
-                <span  v-if="!recommendations[date][scenario]">
+                <span  v-if="!recommendations[date].management">
                     No recommendation for this scenario. Use clinical judgment.
+                </span>
+                <span v-if="recommendations[date].age >= 65">
+                  <span v-if="recommendations[date].retired">
+                    Qualifies for retirement from further screening, based on age and normal results in the prior 10 years.
+                  </span>
+                  <span v-else>
+                    Despite age, still requires further screening: {{ recommendations[date].retiredNote }}
+                  </span>
                 </span>
               </span>
             </v-card-text>
           </v-card>
 
+          <v-card v-if="immunocompromiseSelection === 'Immunocompromised'
+                  && recommendations[date] && recommendations[date].immunocompromise"
+                  :style=" { backgroundColor: ((dailyResults[date] && dailyResults[date].missing) ? colors.blueGrey.lighten2 : colors.blueGrey.lighten5) }">
+            <v-card-title class="text-subtitle-1">
+              For immunocompromised patients
+            </v-card-title>
+            <v-alert  border="left" colored-border
+                      :color='MGMT_COLOR[recommendations[date].immunocompromise]' elevation="1">
+              {{ recommendations[date].immunocompromise }}
+
+            </v-alert>
+            <v-card-text>
+                <span class="text-body-2" v-if="recommendations[date][scenario] && recommendations[date][scenario].immunocompromiseNote">
+                    <i>{{ recommendations[date][scenario].immunocompromiseNote }}</i>
+                </span>
+            </v-card-text>
+          </v-card>
 
           <v-card v-if="dailyResults[date] && dailyResults[date].missing" :color=colors.orange.lighten4 >
             <v-card-title class="text-subtitle-1">
               Missing procedure
             </v-card-title>
             <v-card-subtitle>
-              Recommended {{ dailyResults[date].missing }} after last result.
+              Recommended <b>{{ dailyResults[date].missing }}</b> after last result.
             </v-card-subtitle>
             <v-card-text>
               This wasn't done, which likely invalidates this recommendation.
@@ -219,14 +247,14 @@
 
 
 
-          <v-card v-if="pregnancySelection === 'Pregnant' && recommendations[date][scenario]
-            && (typeof(recommendations[date][scenario].pregnancy) != 'undefined') && recommendations[date][scenario].pregnancy.length"
+          <v-card v-if="pregnancySelection === 'Pregnant' && recommendations[date]
+            && (typeof(recommendations[date].pregnancy) != 'undefined') && recommendations[date].pregnancy.length"
                   :color=colors.pink.lighten5 >
             <v-card-title class="text-subtitle-2">
               Considerations in pregnancy
             </v-card-title>
             <v-card-text>
-              <span v-for="(warning) in recommendations[date][scenario].pregnancy" :key="warning.title">
+              <span v-for="(warning) in recommendations[date].pregnancy" :key="warning.title">
                 <ul>
                   <li v-if="!warning.specific || (warning.specific &&
                     (dailyResults[date].pap && dailyResults[date].pap.toLowerCase() === warning.title.toLowerCase()) ||
@@ -239,14 +267,14 @@
           </v-card>
 
           <v-card :color=colors.grey.lighten5>
-            <risk-gauge v-if="recommendations[date][scenario]"
-                        :riskImmediate="recommendations[date][scenario].cin3risk"
-                        :risk5y="recommendations[date][scenario].cin3risk5y"></risk-gauge>
+            <risk-gauge v-if="recommendations[date]"
+                        :riskImmediate="recommendations[date].cin3risk"
+                        :risk5y="recommendations[date].cin3risk5y"></risk-gauge>
           </v-card>
 
-          <v-card v-if="recommendations[date][scenario] && recommendations[date][scenario].figure">
+          <v-card v-if="recommendations[date] && recommendations[date].figure">
 
-              <span v-for="(figure) in recommendations[date][scenario].figure" :key="figure.file">
+              <span v-for="(figure) in recommendations[date].figure" :key="figure.file">
                 <!-- <embed width="191" height="207" name="plugin"
                        :src="recommendations[date][scenario].figure" type="application/pdf"> -->
 
@@ -309,9 +337,9 @@
 
         </v-col>
       </v-row>
-      <v-timeline dense>
+      <v-timeline v-if="recommendations[date]" dense>
         <v-timeline-item small subtitle="Recommendations">
-          {{ recommendations[date][scenario] }}
+          {{recommendations[date]}}
           <br/>
           Date selected: {{ date }}
           Age: {{ recommendations[date].age }}
@@ -341,6 +369,12 @@ import colors from 'vuetify/lib/util/colors'
 
 
 // import {json} from "@dagrejs/graphlib";
+
+// When we usually stop screening, except in women in whom we're following for abnormalities
+// We use this to figure out when we can stop prompting further screening
+// The ASCCP algorithms specify 65 as the top age, but we'll allow for older ages to account for women
+// who need extended screening
+const MAX_TYPICAL_AGE = 65;
 
 const FIGURE = {
   '3': {file: 'figures/Figure 3.pdf', title: "Figure 3"},
@@ -530,12 +564,15 @@ const ECCRESULT = {
 
 const PREGNANCY = {
   colposcopy: { title: 'Colposcopy',
-                message: `ECC, EMB and treatment without biopsy are not considered acceptable in pregnancy. If CIN 2/3 are diagnosed at the first colposcopy in pregnancy,
-               repeat colposcopy and cytology/HPV (depending on age) preferred q12-24 weeks.
-               Repeat biopsy recommended if invasion is suspected or the appearance of the lesion worsens.
-               It is also acceptable to defer colposcopy to 4+ weeks postpartum.
-               While risk for progression to cancer in pregnancy is low, 11% of new mothers in the US loser their insurance after pregnancy,
-               disproportionately affected those most at risk for cancer.` },
+                message: `ECC, EMB and treatment without biopsy are not considered acceptable in pregnancy.
+                If CIN 2/3 are diagnosed at the first colposcopy in pregnancy,
+               repeat colposcopy and cytology/HPV (depending on age) is preferred every 12-24 weeks.
+
+               Repeat biopsy recommended if invasion is suspected, or the appearance of the lesion worsens.
+               Also acceptable to defer colposcopy to 4+ weeks postpartum.
+               While risk for progression to cancer in pregnancy is low, 11% of new mothers in the US lose
+               their insurance after pregnancy,
+               disproportionately affecting those most at risk for cancer.` },
   treatment:   { title: 'Treatment',
                 message: `Diagnostic excisional procedures in pregnancy are recommended only if cancer is suspected
                 (based on cytology, colposcopy or histology).
@@ -917,6 +954,7 @@ function getPriorDate(dailyResults, date) {
 
 // Is a patient's age in the range of this graph node? (e.g., 45 is in 25-65?)
 // Takes a node, not the whole array of node objects
+// We're going to let 66+ yesr olds sneak in here in case they're up for extended screening
 function ageInRange(age, node) {
   let min, max;
   // console.log(`In ageInRange with ${node}`)
@@ -924,7 +962,7 @@ function ageInRange(age, node) {
   if (node.ageRange) {
     [min, max] = node.ageRange.split('-');
     // console.log(`Is ${age} between ${min} and ${max}?`)
-    if ((age >= min) && age <= max) {
+    if (age >= min && (age <= max || (age > max && age > MAX_TYPICAL_AGE))) {
       return true;
     }
   }
@@ -940,7 +978,8 @@ function ageInRange(age, node) {
 // synonym: are we being called from a synonym? If so, no need to check for matches - we already matched
 // preColposcopy: in scenario 4, we skipped over a colposcopy result and are looking for pre-colpo results
 function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, patient, synonym, preColposcopy) {
-  let node, childNodeList, childNodeName, i, j, priorDate, childNodeList2;
+  let node, childNodeList, childNodeName, i, priorDate;
+  // let j, childNodeList2;
 
   priorDate = getPriorDate(dailyResults, date);
 
@@ -975,45 +1014,6 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
   if (date) {   // We haven't run out of results yet
     switch (scenario) {
       case SCENARIO.papManagement: // Scenario 1
-        // childNodeList = scenarioTree.outEdges(nodeName);
-        // for (i = 0; i < childNodeList.length; i++) {
-        //   childNodeName = childNodeList[i]['w'];
-        //   console.log(`Burrow scenario ${scenario} considering child node ${childNodeName}`)
-        //   node = scenarioTree.node(childNodeName);
-        //   level++;
-        //
-        //   // Check for synonym nodes and skip them
-        //   if (node.procedure === dailyResults[date].pap && (node.hpv == dailyResults[date].hpv || node.hpv ==="Any")
-        //       && (node.synonym || childNodeName.startsWith('s|'))) {
-        //     node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, patient, true);
-        //     return (node);
-        //   } else {
-        //
-        //     if ((node.noHistory ||
-        //         (synonym ||
-        //             (node.procedure === dailyResults[date].pap) && ((node.hpv === dailyResults[date].hpv) || node.hpv === "Any")))) {
-        //       console.log("Found a potential match")
-        //       if (node.leaf) {
-        //         console.log(`Burrow: matched ${childNodeName} at level ${level}, scenario ${scenario}`);
-        //         if (isNaN(node.cin3risk5y)) {
-        //           node.cin3risk5y = -1;
-        //         }
-        //         return (node)
-        //       } else {
-        //         console.log("Burrowing further");
-        //         if (priorDate) {
-        //           node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorDate, patient, false);
-        //           return (node);
-        //         } else {
-        //           return null;
-        //         }
-        //       }
-        //     }
-        //
-        //   }
-        // }
-        //
-        // break;
         // eslint-disable-next-line no-fallthrough
       case SCENARIO.papPriorAbnormal: // Scenario 2
 
@@ -1146,56 +1146,83 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
         }
         for (i = 0; i < childNodeList.length; i++) {
           childNodeName = childNodeList[i]['w'];
-          console.log(`Burrow scenario ${scenario} considering child node ${childNodeName}`)
+          console.log(`Burrow scenario ${scenario} considering child node ${i + 1} of ${childNodeList.length}, ${childNodeName}`)
+          // console.log(`Inward edges: `, scenarioTree.inEdges(childNodeName));
+
           node = scenarioTree.node(childNodeName);
           console.log(node);
           level++;
 
-          if (node.synonym) { // Synonyms (like "ASCUS/LSIL") don't need to match; they should hve just one child
-            console.log(`It's a synonym. Burrowing downward in tree, with date ${priorDate}.`)
-            node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorDate, patient, true, false);
-            return (node);
-          } else {
-            console.log(`Does ${childNodeName} match with ${dailyResults[date].pap}|${dailyResults[date].hpv} - done on ${date}?`)
-            console.log("Child node: ", node);
-            console.log("Daily results: ", dailyResults[date]);
-            if (node.procedure === dailyResults[date].pap &&
-                (node.hpv === dailyResults[date].hpv || node.hpv === "Any") && !dailyResults.colposcopy) {
-              level++;
-              console.log(`It does.`);
+          if (priorDate) {
 
-              if (node.leaf && node.preColposcopy ) {
-                console.log(`Burrow: matched ${childNodeName} at level ${level}, scenario ${scenario}`);
-                if (isNaN(node.cin3risk5y)) {
-                  node.cin3risk5y = -1;
-                }
-                return (node)
-              } else {
-                console.log("Can we burrow further? (Not a leaf)");
-                if (priorDate) {
-                  console.log("Yes.")
-                  node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorDate, patient, false, preColposcopy);
-                  return (node);
-                } else {
-                  console.log("Nope.")
-                }
+            if (node.synonym) { // Synonyms (like "ASCUS/LSIL") don't need to match; they should hve just one child
+              console.log(`It's a synonym. Burrowing downward in tree, with date ${date}.`)
+              node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, patient, true, false);
+              if (node) {
+                return (node);
               }
-            } else if (dailyResults[date].colposcopy) {   // Handle the case of a node showing nothing (no Pap prior to colposcopy)
-              console.log(`Date ${date} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorDate} and lower node.`)
-              console.log(`Children of child node ${childNodeName}:`);
-              console.log(scenarioTree.outEdges(childNodeName));
-              childNodeList2 = scenarioTree.outEdges(childNodeName);
-
-              for (j = 0; j < childNodeList2.length; j++) {
-
-                node = burrow(scenarioTree, scenario, level, childNodeList2[j]['w'], dailyResults, priorDate, patient, false, true);
-                if (node) {
-                  return (node);
-                }
-              }
-
             } else {
-              console.log("It doesn't match.");
+              console.log(`Does ${childNodeName} match with ${dailyResults[priorDate].pap}|${dailyResults[priorDate].hpv} - done on ${priorDate} - preColposcopy state ${preColposcopy}?`)
+              console.log("Child node: ", node);
+              console.log("Daily results: ", dailyResults[priorDate]);
+              if (node.procedure === dailyResults[priorDate].pap &&
+                  (node.hpv === dailyResults[priorDate].hpv || node.hpv === "Any") && !dailyResults[priorDate].colposcopy
+                  && node.preColposcopy === preColposcopy) {
+                level++;
+                console.log(`It does.`);
+
+                if (node.leaf && node.preColposcopy) {
+                  console.log(`Burrow: matched ${childNodeName} at level ${level}, scenario ${scenario}`);
+                  if (isNaN(node.cin3risk5y)) {
+                    node.cin3risk5y = -1;
+                  }
+                  return (node)
+                } else {
+                  console.log(`Can we burrow further? (Not a leaf)`);
+                  if (priorDate) {
+                    console.log(`Yes (going to prior date ${priorDate})`)
+                    node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorDate, patient, false, preColposcopy);
+                    if (node) {
+                      console.log("Came back from further burrowing with: ", node);
+
+                      return (node);
+                    }
+                  } else {
+                    console.log("Nope.")
+                  }
+                }
+              } else if (dailyResults[priorDate].colposcopy) {
+                let priorPriorDate = getPriorDate(dailyResults, priorDate);
+
+                console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorPriorDate} and lower node.`)
+                console.log(`Children of child node ${childNodeName}:`);
+                console.log(scenarioTree.outEdges(childNodeName));
+
+
+                if (priorPriorDate) {
+                  node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorPriorDate, patient, false, true);
+                  if (node) {
+                    return node;
+                  }
+                }
+                // if (priorPriorDate) {
+                //   childNodeList2 = scenarioTree.outEdges(childNodeName);
+                //
+                //   for (j = 0; j < childNodeList2.length; j++) {
+                //     if (date) {
+                //       node = burrow(scenarioTree, scenario, level, childNodeList2[j]['w'], dailyResults, priorPriorDate, patient, false, true);
+                //       if (node) {
+                //         return (node);
+                //       }
+                //     }
+                //   }
+                // }
+
+
+
+              } else {
+                console.log("It doesn't match.");
+              }
             }
           }
         }
@@ -1242,6 +1269,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
         break;
     }
   }
+  console.log("Burrow: returning null.");
   return null;
 }
 
@@ -1308,6 +1336,159 @@ function isThereHSILWithin25y(dailyResults, date) {
 }
 
 //
+// For each recommendation, set recommendations[date].retired to true
+// if a patient should be retired from screening as of a given date
+//
+// A patient should be retired from screening at age 65 (MAX_TYPICAL_AGE)
+// 3 algorithms to choose from; I used ACS 2020 as it covered primary HPV screening so it seems most future-rpoof
+//
+// ACOG 2016/USPSTF 2018 (triangle):
+// - No hx CIN 2+, with evidence of prior adequate screening:
+// - 3+ negative cytology tests in a row, or
+// - 2 consecutive negative co-tests in the last 10 y, most recent within 5y
+//
+// ACS 2020 (yen):
+// - No CIN2+ in the last 25 y
+// - 2 consecutive negative primary HPV tests or co-tests within 10 y, most recently within 5 y, or
+// - 3 consecutive negative Pap tests within 10 y, with the most recent in the last 3 y
+//
+// ASCCP 2012 (dagger):
+// if they have no history of CIN2+ within the last 25y, and evidence of prior adequate screening:
+// - No hx CIN 2 within the last 20 y, with
+//  3+ negative cytology tests in a row,
+//  2+ negative co-tests in the past 10 years, with the most recent within the last 5 years)
+//
+function retiredFromScreening(patient, dailyResults, recommendations) {
+
+  // Count each test type, heading backward in time
+  let pap, hpv, cotest, disqualified, disqualifiedNote;
+
+  let i, j, recList, dateList;
+
+  console.log("In retiredFromScreening, patient current age", patient.age);
+  console.log(recommendations);
+  if (patient.age < MAX_TYPICAL_AGE) {
+    return;
+  }
+
+  recList = Object.keys(recommendations);
+  recList.sort(function (a, b) {
+    return new Date(b.date) - new Date(a.date)
+  });
+
+
+  for (i = 0; i < recList.length; i++) {
+    pap = hpv = cotest = 0;
+    disqualified = false;
+
+    console.log(`On ${recList[i]} patient was ${recommendations[recList[i]].age}`)
+
+
+    if (recommendations[recList[i]] && recommendations[recList[i]].age >= MAX_TYPICAL_AGE) {
+      if (!isThereHSILWithin25y(dailyResults, recommendations[recList[i]].date)) {
+        console.log(`Checking for qualification as of ${recommendations[recList[i]]},`)
+        dateList = Object.keys(dailyResults);
+        dateList.sort(function (a, b) {
+          return new Date(b.date) - new Date(a.date)
+        });
+        console.log("Sorted list of results: ", dateList);
+
+        for (j = 0; j < dateList.length; j++) {
+          console.log(`Examining results on ${dateList[j]}`)
+
+          if (!dailyResults[dateList[j]] || (Date.parse(dateList[j]) > Date.parse(recList[i]))
+              // Added a 180 day grace period
+              || (Date.parse(recList[i]) - Date.parse(dateList[j]) > 10 * 365.25 * 24 * 3600 * 1000 - 180 * 24 * 3600 * 1000)) {
+            console.log("Skipping. (No results or the result is too old or occurs after the date we're examining.");
+            continue;
+          }
+          if (dailyResults[dateList[j]] && dailyResults[dateList[j]].colposcopy &&
+              dailyResults[dateList[j]].colposcopy != COLPORESULT.normal) {
+            disqualified = true;
+            break;
+          }
+          if (dailyResults[dateList[j]] && dailyResults[dateList[j]].excision &&
+              dailyResults[dateList[j]].excision != EXCISIONRESULT.normal) {
+            disqualified = true;
+            break;
+          }
+          if (dailyResults[dateList[j]].hpv && dailyResults[dateList[j]].pap) {
+            if (dailyResults[dateList[j]].hpv === HPVRESULT.hpvNegative && dailyResults[dateList[j]].pap === PAPRESULT.nilm) {
+              if (!cotest) {  // The first cotest has to be within 5 years
+                console.log(`Happened upon the first co-test, on ${dateList[j]}; was it done within 5 years of ${recList[i]}?`)
+                // Added a 90 day grace period
+                if ((Date.parse(recList[i]) - Date.parse(dateList[j])) > 5 * 365.25 * 24 * 3600 * 1000 - 90 * 24 * 3600 * 1000) {
+                  console.log("No.");
+                  disqualified = true;
+                  disqualifiedNote = "Most recent co-test not done within the previous 5 years."
+                  break;
+                }
+              }
+              cotest++;
+              console.log("Yes. That's #", cotest);
+
+            } else {
+              disqualified = true;
+              disqualifiedNote = `Abnormal co-test noted on ${dateList[j]}; 3 normals in a row are needed within the previous 10 years.`
+
+              break;
+            }
+          } else if (dailyResults[dateList[j]].hpv && !dailyResults[dateList[j]].pap) {
+            if (dailyResults[dateList[j]].hpv === HPVRESULT.hpvNegative) {
+              if (!hpv) {
+                // Added a 90 day grace period
+                if ((Date.parse(recList[i]) - Date.parse(dateList[j])) > 5 * 365.25 * 24 * 3600 * 1000 - 90 * 24 * 3600 * 1000) {
+                  disqualified = true;
+                  disqualifiedNote = "Most recent HPV-only test not done within the previous 5 years."
+
+                  break;
+                }
+              }
+              hpv++;
+
+            } else {
+              disqualified = true;
+              disqualifiedNote = `Abnormal HPV test noted on ${dateList[j]}; 3 normals in a row are needed within the previous 10 years.`
+
+              break;
+            }
+          } else if (!dailyResults[dateList[j]].hpv && dailyResults[dateList[j]].pap) {
+            if (dailyResults[dateList[j]].pap === PAPRESULT.nilm) {
+              if (!pap) {
+                // Added a 90 day grace period
+                if ((Date.parse(recList[i]) - Date.parse(dateList[j])) > 3 * 365.25 * 24 * 3600 * 1000 - 90 * 24 * 3600 * 1000) {
+                  disqualified = true;
+                  disqualifiedNote = "Most recent Pap not done within the previous 5 years."
+                  break;
+                }
+              }
+              pap++;
+
+            } else {
+              disqualified = true;
+              disqualifiedNote = `Abnormal Pap test noted on ${dateList[j]}; 3 normals in a row are needed within the previous 10 years.`
+
+              break;
+            }
+          }
+        }
+        console.log(`Normal Paps: ${pap}, normal co-tests: ${cotest}, normal HPV-only ${hpv}`);
+
+      } else {
+        disqualified = true;  // CIN2+ within 25 years disqualifies this date
+        disqualifiedNote = `CIN2+ noted within the previous 25 years.`
+
+      }
+    }
+    if (!disqualified) {
+      recommendations[recList[i]].retired = true;
+    } else {
+      recommendations[recList[i]].retiredNote = disqualifiedNote;
+    }
+  }
+}
+
+//
 // Return true if there is any unreconciled data on or before a given date, which
 // may make all of the results from that date forward invalid
 //
@@ -1345,7 +1526,7 @@ function isThereUnreconciledData(dailyResults, date) {
 //
 function findMissingProcedures(dailyResults, recommendations) {
   console.log("Looking for missing procedures.");
-  let i, j, k;
+  let i, j;
   let resultList = [];
   let dateList = Object.keys(dailyResults);
   dateList.sort(function (a, b) {
@@ -1360,35 +1541,34 @@ function findMissingProcedures(dailyResults, recommendations) {
 
         if (recommendations[dateList[i+1]]) {
           // console.log(`Examining daily results on ${dateList[i]} compared to ${dateList[i + 1]}: `)
-          for (k = 0; k < recommendations[dateList[i+1]].length; k++) {
-            if (recommendations[dateList[i + 1]][k] && recommendations[dateList[i + 1]][k].management) {
-              console.log(`Scenario ${k}: ${recommendations[dateList[i + 1]][k].management}`)
+          if (recommendations[dateList[i + 1]] && recommendations[dateList[i + 1]].management) {
+            console.log(`Scenario ${recommendations[dateList[i+1]].scenario}: ${recommendations[dateList[i + 1]].management}`)
 
-              if (recommendations[dateList[i + 1]][k].management.isInList(MANAGEMENT.colposcopy, MANAGEMENT.colposcopyOrTreatment)) {
-                // console.log("Found a colpo/tx, comparing to: ", dailyResults[dateList[i]]);
-                if (!(dailyResults[dateList[i]].colposcopy || dailyResults[dateList[i]].excision ||
-                    dailyResults[dateList[i]].ablation)) {
-                    dailyResults[dateList[i]]['missing'] = 'colposcopy';
-                } else {
-                  dailyResults[dateList[i]]['missing'] = '';
-                }
+            if (recommendations[dateList[i + 1]].management.isInList(MANAGEMENT.colposcopy, MANAGEMENT.colposcopyOrTreatment)) {
+              console.log(`Found a colpo/tx at ${dateList[i+1]} (${recommendations[dateList[i + 1]].management}), comparing to: `, dailyResults[dateList[i]]);
+              if (!(dailyResults[dateList[i]].colposcopy || dailyResults[dateList[i]].excision ||
+                  dailyResults[dateList[i]].ablation)) {
+                dailyResults[dateList[i]]['missing'] = 'colposcopy';
+              } else {
+                dailyResults[dateList[i]]['missing'] = '';
               }
-
-              if (recommendations[dateList[i + 1]][k].management.isInList(MANAGEMENT.treatment)) {
-                console.log("Found tx, comparing to: ", dailyResults[dateList[i]]);
-                if (!(dailyResults[dateList[i]].ablation || dailyResults[dateList[i]].excision)) {
-                  dailyResults[dateList[i]]['missing'] = 'treatment';
-                } else {
-                  dailyResults[dateList[i]]['missing'] = '';
-                }
-              }
-
             }
+
+            if (recommendations[dateList[i + 1]].management.isInList(MANAGEMENT.treatment)) {
+              console.log("Found tx, comparing to: ", dailyResults[dateList[i]]);
+              if (!(dailyResults[dateList[i]].ablation || dailyResults[dateList[i]].excision)) {
+                dailyResults[dateList[i]]['missing'] = 'treatment';
+              } else {
+                dailyResults[dateList[i]]['missing'] = '';
+              }
+            }
+
           }
         }
       }
     }
   }
+
 
 }
 
@@ -1399,16 +1579,15 @@ function findMissingProcedures(dailyResults, recommendations) {
 // Continued surveillance with HPV or co-testing at 3 year intervals for at least 25 y is recommended after tx and initial post-tx management
 // of histologic HSIL, CIN 2, CIN 3 or AIS. Continued surveillance at 3 y intervlas beyond 25 y is acceptable if life expectancy/ability to be screened exists
 //
-function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date) {
+function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, scenario) {
 
-  let i;
-  // eslint-disable-next-line no-unused-vars
-  let node = {};
+  // let i;
+  // let node = {};
   let notes = {};
   // let level = 0;
   // let priorLevel = 0;
   let childNode = {};
-  let match = [];
+  let match = {};
   let originalDate = date;
 
   let nodeName;
@@ -1425,163 +1604,136 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date) 
   notes.histologicHSIL = isThereHSILWithin25y(dailyResults, date);
   notes.unreconciledData = isThereUnreconciledData(dailyResults, date);
 
-  // Not every scenario will be appropriate for every patient, and we'll come up with the one to display by default, but we want the others visible too
-  // on the chance there's useful information there
-  for (i = 0; i < scenarioList.length; i++) {
-    date = originalDate;        // Start at the most recent result for each search
-    match[i] = {};
-    match[i].figure = [];
 
-    console.log(`makeRecommendations Scenario ${i}, date ${date}, age ${age}`);
-    // GO back to an unmodified dailyResults so we can search for the HSIL+ and High Grade cases again...
-    // dailyResults = JSON.parse(JSON.stringify(dailyResultsCopy));
+  date = originalDate;        // Start at the most recent result for each search
+  match = {};
+  match.figure = [];
 
-    if (!dailyResults[date].pap) {  // handles HPV-only screens (which will come in as undefined)
-      dailyResults[date].pap = '';
-    }
-    if (!dailyResults[date].hpv) {  // Handles HPV-less (e.g., Pap only) results
-      dailyResults[date].hpv = '';
-    }
+  console.log(`makeRecommendations Scenario ${scenario}, date ${date}, age ${age}`);
 
-    // The ASCCP uses ALL (which we translate to NONE) to mean HPV only, so the Pap part will be blank
-    if (dailyResults[date].pap === 'NONE') {
-      dailyResults[date].pap = '';
-    }
-
-    if (dailyResults[date].pap === PAPRESULT.ais) {
-      // figure.push(FIGURE['11']);
-      addFigure(figure, 11);
-    }
-
-    if (dailyResults[date].pap === PAPRESULT.agc || dailyResults.pap === PAPRESULT.agcfn) {
-      // figure.push(FIGURE['11']);
-      addFigure(figure, 3);
-    }
-
-    if (age < 25 && dailyResults[date].pap.isInList(PAPRESULT.ascus, PAPRESULT.lsil, PAPRESULT.asch, PAPRESULT.hsil)) {
-      addFigure(figure, 12);
-    }
-
-    // TODO: Absent transformation zone: Figure 6
-    // TODO: Unsatisfactory cytology: Figure 5
-
-    switch (i) {
-        // Scenario 1, Initial management of abnormal screening results
-      case SCENARIO.papManagement:
-        // console.log(`makeRecommendations: Handling scenario ${i}`);
-        //
-        //
-        // nodeName = `${i}|${dailyResults[date].pap}|${dailyResults[date].hpv}`;
-        // console.log(`(a) Looking for ${nodeName}`);
-        // match[i] = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false);
-        // if (match[i]) {
-        //   match[i].figure = match[i].figure.concat(figure);
-        // }
-        //
-        // break;
-        // eslint-disable-next-line no-fallthrough
-      case SCENARIO.papPriorAbnormal:         // Scenario 2, Pap after prior abnormal
-        // console.log(`makeRecommendations: Handling scenario ${i} (papPriorAbnormal)`);
-        //
-        // nodeName = `${i}|${dailyResults[date].pap}|${dailyResults[date].hpv}`;
-        //
-        // console.log(`(b) Looking for ${nodeName}`);
-        // match[i] = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false);
-        // if (match[i]) {
-        //   match[i].figure = match[i].figure.concat(figure);
-        // }
-        //
-        // break;
-        // eslint-disable-next-line no-fallthrough
-      case SCENARIO.papAfterColposcopy: // Scenario 4
-        console.log(`makeRecommendations: Handling scenario ${i}.`);
-
-        nodeName = `${i}|${dailyResults[date].pap}|${dailyResults[date].hpv}`;
-        console.log(`(e) Looking for ${nodeName}`);
-
-        match[i] = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false);
-        console.log("(e) Came back from burrow with:", match[i])
-        if (match[i]) {
-          match[i].figure = match[i].figure.concat(figure);
-        }
-        break;
-
-      case SCENARIO.postColposcopy:         // Scenario 3
-        console.log(`makeRecommendations: Handling scenario ${i}, current result: ${dailyResults[date].colposcopy}`);
-        nodeName = `${i}|${dailyResults[date].colposcopy}`
-        console.log(`(c) Looking for match for scenario ${i}, node ${nodeName}`);
-        match[i] = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false);
-
-
-        break;
-
-      case SCENARIO.papAfterTreatment:  // Scenario 5
-        console.log(`makeRecommendations: Handling scenario ${i}.`);
-        // In scenario 5, we don't distinguish between HPV16/18 and HPV positive, so convert 16/18 to HPV positive
-        papResult = dailyResults[date].pap;
-        hpvResult = dailyResults[date].hpv;
-        if (hpvResult === HPVRESULT.hpv18Positive || hpvResult === HPVRESULT.hpv16Positive || hpvResult === "HPV16+" || hpvResult === "HPV18+") {
-          hpvResult = HPVRESULT.hpvPositive;
-        }
-
-        nodeName = `${i}|${papResult}|${hpvResult}`;
-        console.log(`(5) Looking for ${nodeName}, age ${age}`);
-        match[i] = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false)
-        if (match[i]) {
-          match[i].figure = match[i].figure.concat(figure);
-        }
-
-        break;
-
-      case SCENARIO.postTreatment: // Scenario 6
-        console.log(`makeRecommendations: handling scenario ${i}.`);
-        console.log(dailyResults[date]);
-        if (dailyResults[date].excision) {
-          nodeName = `${i}|Excision|${dailyResults[date].margins == EXCISIONRESULT.marginsNegative ? 'Negative' : 'Positive'}`;
-
-        } else if (dailyResults[date].ablation) {
-          nodeName = `${i}|Ablation|`;
-
-        }
-
-        console.log(`Looking for node ${nodeName}`)
-        if (scenarioTree.hasNode(nodeName)) {
-          node = scenarioTree.node(nodeName);
-          console.log("Found it.")
-          date = getPriorDate(dailyResults, date);
-          if (date) { // We haven't run out of results
-            console.log(`Looking for results on ${date}`);
-            console.log(dailyResults[date]);
-            childNode = {};
-            if (!dailyResults[date].colposcopy) {
-              dailyResults[date].colposcopy = '';
-            }
-            (scenarioTree.outEdges(nodeName)).forEach(childNodeName => {
-              childNodeName = childNodeName['w'];
-              console.log(`Do the results match ${childNodeName}? Node contents:`)
-              childNode = scenarioTree.node(childNodeName);
-              console.log(childNode);
-
-              // Assumes the child node is a leaf
-
-              if (childNode && (childNode.bxResult === dailyResults[date].colposcopy && ageInRange(age, childNode))) {
-                match[i] = scenarioTree.node(childNodeName);
-
-                match[i].figure = match[i].figure.concat(figure);
-
-              }
-
-            });
-          }
-        }
-        break;
-    }
-
-    // Storing null objects makes the view a pain (testing for a null object), so we'll store a null instead
-    if (match[i] && typeof (match[i]) === "object" && Object.keys(match[i]).length === 0) {
-      match[i] = null;
-    }
+  if (!dailyResults[date].pap) {  // handles HPV-only screens (which will come in as undefined)
+    dailyResults[date].pap = '';
   }
+  if (!dailyResults[date].hpv) {  // Handles HPV-less (e.g., Pap only) results
+    dailyResults[date].hpv = '';
+  }
+
+  // The ASCCP uses ALL (which we translate to NONE) to mean HPV only, so the Pap part will be blank
+  if (dailyResults[date].pap === 'NONE') {
+    dailyResults[date].pap = '';
+  }
+
+  if (dailyResults[date].pap === PAPRESULT.ais) {
+    // figure.push(FIGURE['11']);
+    addFigure(figure, 11);
+  }
+
+  if (dailyResults[date].pap === PAPRESULT.agc || dailyResults.pap === PAPRESULT.agcfn) {
+    // figure.push(FIGURE['11']);
+    addFigure(figure, 3);
+  }
+
+  if (age < 25 && dailyResults[date].pap.isInList(PAPRESULT.ascus, PAPRESULT.lsil, PAPRESULT.asch, PAPRESULT.hsil)) {
+    addFigure(figure, 12);
+  }
+
+  // TODO: Absent transformation zone: Figure 6
+  // TODO: Unsatisfactory cytology: Figure 5
+
+  switch (scenario) {
+      // Scenario 1, Initial management of abnormal screening results
+    case SCENARIO.papManagement:
+      // eslint-disable-next-line no-fallthrough
+    case SCENARIO.papPriorAbnormal:         // Scenario 2, Pap after prior abnormal
+      // eslint-disable-next-line no-fallthrough
+    case SCENARIO.papAfterColposcopy: // Scenario 4
+
+      nodeName = `${scenario}|${dailyResults[date].pap}|${dailyResults[date].hpv}`;
+      console.log(`(e) Looking for ${nodeName}`);
+
+      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false, false);
+      console.log("(e) Came back from burrow with:", match)
+      if (match) {
+        match.figure = match.figure.concat(figure);
+      }
+      break;
+
+    case SCENARIO.postColposcopy:         // Scenario 3
+      console.log(`makeRecommendations: Handling scenario ${scenario}, current result: ${dailyResults[date].colposcopy}`);
+      nodeName = `${scenario}|${dailyResults[date].colposcopy}`
+      console.log(`(c) Looking for match for scenario ${scenario}, node ${nodeName}`);
+      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false);
+
+
+      break;
+
+    case SCENARIO.papAfterTreatment:  // Scenario 5
+      console.log(`makeRecommendations: Handling scenario ${scenario}.`);
+      // In scenario 5, we don't distinguish between HPV16/18 and HPV positive, so convert 16/18 to HPV positive
+      papResult = dailyResults[date].pap;
+      hpvResult = dailyResults[date].hpv;
+      if (hpvResult === HPVRESULT.hpv18Positive || hpvResult === HPVRESULT.hpv16Positive || hpvResult === "HPV16+" || hpvResult === "HPV18+") {
+        hpvResult = HPVRESULT.hpvPositive;
+      }
+
+      nodeName = `${scenario}|${papResult}|${hpvResult}`;
+      console.log(`(5) Looking for ${nodeName}, age ${age}`);
+      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false)
+      if (match) {
+        match.figure = match.figure.concat(figure);
+      }
+
+      break;
+
+    case SCENARIO.postTreatment: // Scenario 6
+      console.log(`makeRecommendations: handling scenario ${scenario}.`);
+      console.log(dailyResults[date]);
+      if (dailyResults[date].excision) {
+        nodeName = `${scenario}|Excision|${dailyResults[date].margins == EXCISIONRESULT.marginsNegative ? 'Negative' : 'Positive'}`;
+
+      } else if (dailyResults[date].ablation) {
+        nodeName = `${scenario}|Ablation|`;
+
+      }
+
+      console.log(`Looking for node ${nodeName}`)
+      if (scenarioTree.hasNode(nodeName)) {
+        // let node = scenarioTree.node(nodeName);
+        console.log("Found it.")
+        date = getPriorDate(dailyResults, date);
+        if (date) { // We haven't run out of results
+          console.log(`Looking for results on ${date}`);
+          console.log(dailyResults[date]);
+          childNode = {};
+          if (!dailyResults[date].colposcopy) {
+            dailyResults[date].colposcopy = '';
+          }
+          (scenarioTree.outEdges(nodeName)).forEach(childNodeName => {
+            childNodeName = childNodeName['w'];
+            console.log(`Do the results match ${childNodeName}? Node contents:`)
+            childNode = scenarioTree.node(childNodeName);
+            console.log(childNode);
+
+            // Assumes the child node is a leaf
+
+            if (childNode && (childNode.bxResult === dailyResults[date].colposcopy && ageInRange(age, childNode))) {
+              match = scenarioTree.node(childNodeName);
+
+              match.figure = match.figure.concat(figure);
+
+            }
+
+          });
+        }
+      }
+      break;
+  }
+
+
+  if (match) {
+    match.date = originalDate;
+  }
+
   return [match, notes];
 
 }
@@ -1592,27 +1744,27 @@ function getPatientResults() {
   let hpvResults = [];
   let i, date, result, hpv16, hpv18, hpv, newResult;
 
-  ccsResults = [
-    { date: '9/20/2020', procedure: 'Pap Smear', result: 'HSIL', tz: 'Present' },
-    { date: '9/20/2020', procedure: 'HPV, HIGH RISK', result: 'Detected' },
-    { date: '9/20/2020', procedure: 'HPV GENOTYPE 16', result: 'Detected'},
-    { date: '9/20/2020', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    { date: '9/12/2020', procedure: 'Excision', result: ['CIN2', 'Margins Negative']},
-    { date: '9/6/2020', procedure: 'Colposcopy', result: 'CIN1'},
-    { date: '9/2/2020', procedure: 'Pap Smear', result: 'HSIL', tz: 'Present' },
-    { date: '9/2/2020', procedure: 'HPV, HIGH RISK', result: 'Detected' },
-    { date: '9/2/2020', procedure: 'HPV GENOTYPE 16', result: 'Detected'},
-    { date: '9/2/2020', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    { date: '6/3/2019', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    { date: '6/3/2019', procedure: 'HPV, HIGH RISK', result: 'Detected' },
-    { date: '6/3/2019', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    { date: '6/3/2019', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    { date: '6/23/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    { date: '6/23/2014', procedure: 'HPV, HIGH RISK', result: 'Not Detected' },
-    { date: '6/23/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    { date: '6/23/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    { date: '10/12/2009', procedure: 'Pap Smear', result: 'AIS', tz: 'Present'},
-  ];
+  // ccsResults = [
+  //   { date: '9/20/2020', procedure: 'Pap Smear', result: 'HSIL', tz: 'Present' },
+  //   { date: '9/20/2020', procedure: 'HPV, HIGH RISK', result: 'Detected' },
+  //   { date: '9/20/2020', procedure: 'HPV GENOTYPE 16', result: 'Detected'},
+  //   { date: '9/20/2020', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   { date: '9/12/2020', procedure: 'Excision', result: ['CIN2', 'Margins Negative']},
+  //   { date: '9/6/2020', procedure: 'Colposcopy', result: 'CIN1'},
+  //   { date: '9/2/2020', procedure: 'Pap Smear', result: 'HSIL', tz: 'Present' },
+  //   { date: '9/2/2020', procedure: 'HPV, HIGH RISK', result: 'Detected' },
+  //   { date: '9/2/2020', procedure: 'HPV GENOTYPE 16', result: 'Detected'},
+  //   { date: '9/2/2020', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   { date: '6/3/2019', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   { date: '6/3/2019', procedure: 'HPV, HIGH RISK', result: 'Detected' },
+  //   { date: '6/3/2019', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   { date: '6/3/2019', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   { date: '6/23/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   { date: '6/23/2014', procedure: 'HPV, HIGH RISK', result: 'Not Detected' },
+  //   { date: '6/23/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   { date: '6/23/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   { date: '10/12/2009', procedure: 'Pap Smear', result: 'AIS', tz: 'Present'},
+  // ];
 
   // ccsResults = [
   //   { date: '9/21/2020', procedure: 'Pap Smear', result: 'HSIL', tz: 'Present' },
@@ -1629,7 +1781,7 @@ function getPatientResults() {
   // ];
 
   // ccsResults = [
-  //   {date: '7/24/2020', procedure: 'Excision', result: ['CIN2', 'Margins Negative']},
+  //   {date: '9/24/2020', procedure: 'Excision', result: ['CIN2', 'Margins Negative']},
   //   {date: '6/5/2020', procedure: 'Colposcopy', result: 'CIN2'},
   //   {date: '5/15/2020', procedure: 'HPV, HIGH RISK', result: 'Detected'},
   //   {date: '5/15/2020', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
@@ -1656,6 +1808,46 @@ function getPatientResults() {
   //   {date: '8/1/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
   //   {date: '8/1/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
   // ];
+
+  ccsResults = [
+    {date: '11/4/2020', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '11/4/2020', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '10/4/2015', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '10/4/2015', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '11/5/2010', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '11/5/2010', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '6/18/2008', procedure: 'Colposcopy', result: 'Normal'},
+    {date: '5/15/2008', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '5/15/2008', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '5/15/2008', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '5/15/2008', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '1/20/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '1/20/2007', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '1/20/2007', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '1/20/2007', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '6/17/2006', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '6/17/2006', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '6/17/2006', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '6/17/2006', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '11/20/2005', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
+    {date: '11/20/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '11/20/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '11/20/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '5/18/2005', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '5/18/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '5/18/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '5/18/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '5/18/2005', procedure: 'Colposcopy', result: 'Normal'},
+    {date: '11/4/2004', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
+    {date: '11/4/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '11/4/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '11/4/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '9/5/2004', procedure: 'Colposcopy', result: 'CIN1'},
+    {date: '8/1/2004', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '8/1/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '8/1/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '8/1/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  ];
 
   // Process the input to get the nomenclature to match the ASCCP spreadsheets
   // Combine all the HPV results from one date into one result
@@ -1733,7 +1925,7 @@ function getPatientResults() {
 
 function getPatient() {
   var patient = {
-    birthdate: '10/3/1987',
+    birthdate: '10/3/1954',
     pregnant: 0,
     immunocompromised: 0,
     age: 0
@@ -1905,6 +2097,7 @@ function makeScenarioTree(scenarioTable) {
       let pregnancy = [];
       let immunocompromise = '';
       let immunocompromiseNote = '';
+      let management = scenarioTable[i][0][j]['Management'];
       papResult = hpvResult = null;
 
 
@@ -1939,12 +2132,17 @@ function makeScenarioTree(scenarioTable) {
 
           // Per Guidelines K.3, colposcopy recommended for all cytology HPV-positive ASC-US or higher
           // If no HPV result, then repeat cytology in 6-12 m
-          if (papResult && papResult != PAPRESULT.nilm) {
+          if (papResult && papResult != PAPRESULT.nilm && management.notInList(MANAGEMENT.colposcopy, MANAGEMENT.colposcopyOrTreatment)) {
             immunocompromise = MANAGEMENT.colposcopy;
             if (papResult === PAPRESULT.ascus && !hpvResult) {
               immunocompromise = MANAGEMENT.followup6m;
               immunocompromiseNote = "Repeat cytology in 6-12 months, with colposcopy for ASC-US or higher";
             }
+          }
+
+          if (management === MANAGEMENT.followup5y) {
+            immunocompromise = MANAGEMENT.followup3y
+            immunocompromiseNote = "Maximum 3 year screening intervals recommended for immunocompromised patients (annually for 3 years x 3 then q 3y, with cytology only until age 30, then cytology or co-testing age 30+)."
           }
 
           // Entries in the ASCCP table like HSIL+ stand for a bunch of possible Pap results
@@ -2014,7 +2212,7 @@ function makeScenarioTree(scenarioTable) {
             immunocompromise: immunocompromise,
             immunocompromiseNote: immunocompromiseNote,
             ageRange: scenarioTable[i][0][j]['Age'],
-            management: scenarioTable[i][0][j]['Management'],
+            management: management,
             cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
             cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
             confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
@@ -2048,7 +2246,7 @@ function makeScenarioTree(scenarioTable) {
               node.immunocompromiseNote = immunocompromiseNote;
               node.ageRange = scenarioTable[i][0][j]['Age'];
 
-              node.management = scenarioTable[i][0][j]['Management'];
+              node.management = management;
               node.cin3risk = scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'];
               node.cin3risk5y = scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'];
               node.confidence = scenarioTable[i][0][j]['Management Confidence Probability'];
@@ -2078,7 +2276,7 @@ function makeScenarioTree(scenarioTable) {
               immunocompromise: immunocompromise,
               immunocompromiseNote: immunocompromiseNote,
               ageRange: scenarioTable[i][0][j]['Age'],
-              management: scenarioTable[i][0][j]['Management'],
+              management: management,
               cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
               cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
               confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
@@ -2132,7 +2330,7 @@ function makeScenarioTree(scenarioTable) {
             figure: figure,
             pregnancy: pregnancy,
             // synonym: (histologyResult === '<CIN1' || histologyResult === 'Cancer'),
-            management: scenarioTable[i][0][j]['Management'],
+            management: management,
             // cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],  // Doesn't exist as of 2020
             cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
             // confidence: scenarioTable[i][0][j]['Management Confidence Probability'], // Doesn't exist as of 2020,
@@ -2175,7 +2373,7 @@ function makeScenarioTree(scenarioTable) {
               // }
               //
               // Handle HSIL+ by storing it in a bunch of synonym nodes
-              if (papResult === PAPRESULT.asch && histologyResult === COLPORESULT.cin1) {
+              if (papResult === PAPRESULT.asch && (histologyResult.isInList(COLPORESULT.cin1, '<CIN1'))) {
                 // figure.push(FIGURE['10']);
                 addFigure(figure, 10);
 
@@ -2201,7 +2399,7 @@ function makeScenarioTree(scenarioTable) {
                     figure: figure,
                     pregnancy: pregnancy,
                     ageRange: scenarioTable[i][0][j]['Age'],
-                    management: scenarioTable[i][0][j]['Management'],
+                    management: management,
                     cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
                     notes: scenarioTable[i][0][j]['Notes'],
                     leaf: true
@@ -2231,7 +2429,7 @@ function makeScenarioTree(scenarioTable) {
               figure: figure,
               pregnancy: pregnancy,
               ageRange: scenarioTable[i][0][j]['Age'],
-              management: scenarioTable[i][0][j]['Management'],
+              management: management,
               // cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],  // Doesn't exist as of 2020
               cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
               // confidence: scenarioTable[i][0][j]['Management Confidence Probability'], // Doesn't exist as of 2020
@@ -2261,7 +2459,7 @@ function makeScenarioTree(scenarioTable) {
             }
           }
 
-          if (papResult && papResult != PAPRESULT.nilm) {
+          if (papResult && papResult != PAPRESULT.nilm && management.notInList(MANAGEMENT.colposcopy, MANAGEMENT.colposcopyOrTreatment)) {
             immunocompromise = MANAGEMENT.colposcopy;
             if (papResult === PAPRESULT.ascus && !hpvResult) {
               immunocompromise = MANAGEMENT.followup6m;
@@ -2269,10 +2467,10 @@ function makeScenarioTree(scenarioTable) {
             }
           }
 
-          // Entries in the ASCCP table like HSIL+ stand for a bunch of possible Pap results
+          // Entries in the ASCCP table like High Grade or ASCUS/LSIL stand for a bunch of possible Pap results
           // We'll store those as a bunch of incoming nodes to a primary node so they are easier to search for
           // using the actual patient results later
-          if (papExpansion[papResult] && typeof (papExpansion[papResult]) != "string") { // papResult === 'HSIL+' || papResult === 'High Grade' || papResult == ) {
+          if (papExpansion[papResult] && typeof (papExpansion[papResult]) != "string") {
             // nodeName = `${i}|${papResult}|${hpvResult}`
 
             addPapSynonyms(tree, papResult, hpvResult, scenarioTable[i][0][j]['Age'], i, false, figure, pregnancy);
@@ -2321,18 +2519,19 @@ function makeScenarioTree(scenarioTable) {
           if (papResult && papResult.includes('x2')) {
             // Handle an extra node for things like Cotest-negative x2
             [papResult, hpvResult] = splitCombinedResult(papResult.substring(0, papResult.search('x2') - 1));
-
+            console.log(`makeScenarioTree, found x2 node at scenario ${i}, row ${j}, Pap ${papResult}, HPV ${hpvResult}`);
             node = {
               procedure: papResult,
               hpv: hpvResult,
               leaf: false,
-              postColposcopy: true,
+              preColposcopy: false,
               scenario: i
             };
             nodeName = `${i}-${j}-${k++}|${node.procedure}|${node.hpv}`;
             if (!tree.hasNode(nodeName)) {
               tree.setNode(nodeName, node);
             }
+            console.log("Saved as ", nodeName);
             tree.setEdge(previousNodeName, nodeName);
 
             previousNodeName = nodeName;
@@ -2341,13 +2540,15 @@ function makeScenarioTree(scenarioTable) {
               procedure: papResult,
               hpv: hpvResult,
               leaf: false,
-              postColposcopy: true,
+              preColposcopy: false,
               scenario: i
             };
             nodeName = `${i}-${j}-${k++}|${node.procedure}|${node.hpv}`;
             if (!tree.hasNode(nodeName)) {
               tree.setNode(nodeName, node);
             }
+            console.log("Saved as ", nodeName);
+
             tree.setEdge(previousNodeName, nodeName);
 
             previousNodeName = nodeName;
@@ -2361,13 +2562,13 @@ function makeScenarioTree(scenarioTable) {
                 procedure: 'ASCUS/LSIL',
                 hpv: hpvResult,
                 leaf: false,
-                postColposcopy: true,
+                preColposcopy: false,
                 synonym: true,
                 scenario: i
               }
               synonymNodeName = `s|${i}-${j}-${k}|${node.procedure}|${node.hpv}`
               if (!tree.hasNode(synonymNodeName)) {
-                tree.setNode((synonymNodeName, node))
+                tree.setNode(synonymNodeName, node)
               }
 
               papResult.forEach(papSynonym => {
@@ -2375,15 +2576,31 @@ function makeScenarioTree(scenarioTable) {
                   procedure: papSynonym,
                   hpv: hpvResult,
                   leaf: false,
-                  postColposcopy: true,
+                  preColposcopy: false,
                   scenario: i
                 }
-                nodeName = `${i}-${j}-${k++}|${node.procedure}|${node.hpv}`;
+                nodeName = `${i}-${j}-${++k}|${node.procedure}|${node.hpv}`;
                 if (!tree.hasNode(nodeName)) {
-                  tree.setNode((nodeName, node))
+                  tree.setNode(nodeName, node)
+
+                  // if (nodeName === "3-28-2|ASC-US|HPV-negative") {
+                  //   console.log("Making our problem node.");
+                  //   console.log(tree.node(nodeName));
+                  //
+                  // }
+
                 }
+
                 tree.setEdge(previousNodeName, nodeName);
                 tree.setEdge(nodeName, synonymNodeName);
+
+                // if (nodeName === "3-28-2|ASC-US|HPV-negative") {
+                //   console.log("Made our problem node, ", nodeName);
+                //   console.log("Inward edges: ", tree.inEdges(nodeName));
+                //   console.log("Outward edges: ", tree.outEdges(nodeName));
+                //   console.log(tree.node(nodeName));
+                // }
+
               });
               previousNodeName = synonymNodeName;
             } else {
@@ -2391,7 +2608,7 @@ function makeScenarioTree(scenarioTable) {
                 procedure: papResult,
                 hpv: hpvResult,
                 leaf: false,
-                postColposcopy: true,
+                preColposcopy: false,
                 scenario: i
               };
               nodeName = `${i}-${j}-${k++}|${node.procedure}|${node.hpv}`;
@@ -2399,20 +2616,20 @@ function makeScenarioTree(scenarioTable) {
                 tree.setNode(nodeName, node);
               }
               tree.setEdge(previousNodeName, nodeName);
+              previousNodeName = nodeName
             }
           }
 
 
           // console.log(`Made ${nodeName} a child of of ${previousNodeName}`);
           // console.log(tree.children(previousNodeName))
-          previousNodeName = nodeName;
+          // previousNodeName = nodeName;
 
           // Handle the second sub-node for Scenario 4; it's all "Low Grade" or "High Grade"
           papResult = scenarioTable[i][0][j]['Pre-Colpo Test Result'];
           if (papResult === 'Low Grade' || papResult === 'High Grade') {
             nodeName = `${i}-${j}-${k}|${papResult}`
             papExpansion[papResult].forEach(papSynonym => {
-              // previousNodeName = `s|${i}-${j}-${k}|${papSynonym}`
               synonymNodeName = `${i}-${j}-${k}|${papSynonym}`
               hpvResult = '';
 
@@ -2446,7 +2663,7 @@ function makeScenarioTree(scenarioTable) {
                 immunocompromiseNote: immunocompromiseNote,
                 figure: figure,
                 ageRange: scenarioTable[i][0][j]['Age'],
-                management: scenarioTable[i][0][j]['Management'],
+                management: management,
                 cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
                 cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
                 confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
@@ -2505,7 +2722,7 @@ function makeScenarioTree(scenarioTable) {
                   scenario: i,
                   synonym: true,
 
-                  management: scenarioTable[i][0][j]['Management'],
+                  management: management,
                   cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
                   cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
                   confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
@@ -2550,7 +2767,7 @@ function makeScenarioTree(scenarioTable) {
                     immunocompromise: immunocompromise,
                     immunocompromiseNote: immunocompromiseNote,
                     ageRange: scenarioTable[i][0][j]['Age'],
-                    management: scenarioTable[i][0][j]['Management'],
+                    management: management,
                     cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
                     cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
                     confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
@@ -2702,7 +2919,7 @@ function makeScenarioTree(scenarioTable) {
                   immunocompromise: immunocompromise,
                   immunocompromiseNote: immunocompromiseNote,
                   ageRange: scenarioTable[i][0][j]['Age'],
-                  management: scenarioTable[i][0][j]['Management'],
+                  management: management,
                   cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
                   cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
                   confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
@@ -2759,7 +2976,7 @@ function makeScenarioTree(scenarioTable) {
             procedure: treatment,
             ageRange: scenarioTable[i][0][j]['Age'],
             margins: scenarioTable[i][0][j]['Margins'] || '',
-            management: scenarioTable[i][0][j]['Management'],
+            management: management,
             bxResult: bxResult,
             figure: figure,
             notes: scenarioTable[i][0][j]['Notes'],
@@ -2809,6 +3026,18 @@ if (!String.prototype.isInList) {
   });
 }
 
+if (!String.prototype.notInList) {
+  Object.defineProperty(String.prototype, 'notInList', {
+    get: () => function (...args) {
+      let value = this.valueOf();
+      for (let i = 0, l = args.length; i < l; i += 1) {
+        if (arguments[i] === value) return false;
+      }
+      return true;
+    }
+  });
+}
+
 // Per guidelines zK.3, immunocompromised patients should start screening within 1 y o f insertional sex,
 // continue throughout lifetime (not 65), annually x 3 y, then q 3 y (cytology only) until 30, then cytology laone or co-testing q3y
 // with colposcopy for ASC-US HPV+ or higher (if no HPV, repeat cutology in 6-12 m, with colpo for ASUS+)
@@ -2837,6 +3066,7 @@ let date;
 let notes = {};
 patient.age = Math.floor((new Date() - birthdateTime) / (1000 * 60 * 60 * 24 * 365.25));
 
+
 // console.log(`Scenario table:`)
 // console.log(scenarioTable);
 // console.log(req.keys());
@@ -2851,12 +3081,17 @@ Object.keys(dailyResults).forEach(date => {
   // dailyResults[date].age = Math.floor((Date.parse(date) - birthdateTime) / (1000 * 60 * 60 * 24 * 365.25));
   // console.log(`${recommendations[date].age}`)
 
-  [recommendations[date], notes[date]] = makeRecommendations(patient, dailyResults, scenarioTree, date);
+  [recommendations[date], notes[date]] = makeRecommendations(patient, dailyResults, scenarioTree, date, scenario);
+
+  if (!recommendations[date]) {
+     recommendations[date] = {};
+  }
   recommendations[date].age = dailyResults[date].age;
   recommendations[date].scenario = scenario;
 
 })
 
+retiredFromScreening(patient, dailyResults, recommendations);
 findMissingProcedures(dailyResults, recommendations);
 
 // TODO: Enable non-primary scenarios (or get rid of them altogether)
