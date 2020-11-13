@@ -1,37 +1,38 @@
 <template>
 
-  <v-layout >
+  <v-layout>
 
     <v-card>
-      <v-card-title class="text-subtitle-1" :style=" { backgroundColor: colors.blueGrey.lighten5 }">
-        <img src="speculum.svg" width="100" height="100" class="pa-4">
-        Pap<b>Map</b>
-      </v-card-title>
-
-      <v-card-text >
-        <v-row :style=" { backgroundColor: colors.cyan.lighten4 }">
+      <v-card-title class="text-subtitle-1" :style=" { backgroundColor: colors.purple.lighten4 }">
+        <img src="speculum.svg" width="80" height="80" class="pa-2">
+        <v-row>
           <v-col>
-            PapMap 0.1
+            <span class="px-3">
+              Pap<b>Map</b>
+            </span>
+            <v-divider vertical></v-divider>
+            <span class="px-3 text-body-2">
+              0.1
+            </span>
           </v-col>
           <v-col>
-            <div class="text-body-2">
+            <div class="text-caption">
               Daniel Rosenberg MD<br/>
               Providence Medical Group, Portland, OR
               <br/>
             </div>
           </v-col>
         </v-row>
-        <br/>
-        <br/>
-      </v-card-text>
+      </v-card-title>
 
-      <v-card-subtitle>
+
+      <v-card-subtitle :style=" { backgroundColor: colors.blueGrey.lighten4 }" class="pa-4">
         Applies ASCCP 2020 cervical cancer screening guidelines to reconciled cytology, HPV, colposcopy and
         treatment results.
-
       </v-card-subtitle>
+
       <v-divider></v-divider>
-      <v-card-text class="text-caption">
+      <v-card-text class="text-caption" :style=" { backgroundColor: colors.blueGrey.darken3 }">
          This software is designed to aid in the application of algorithms but
           is not guaranteed, and cannot substitute for your medical judgment.
           <br/><br/>
@@ -41,11 +42,13 @@
           These were published under the Creative Commons <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/">CCBY-NC-ND 4.0</a>
           license, which permits sharing the work with proper citation.
           <br/><br/>
+        Version <b>0.1</b> &mdash; Initial alpha test
+          <br/><br/>
           This software &copy;2020 Providence, and is published under the <a href="https://opensource.org/licenses/MIT">MIT License</a>.
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="blue darken-1" text @click.native="closeClick">Close</v-btn>
+        <v-btn color="blue darken-1" text @click.native="closeAbout">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-layout>
@@ -62,9 +65,13 @@ export default {
       colors
     }
   },
+  props: {
+    displayAbout: Boolean
+  },
   methods: {
-    closeClick () {
-      this.$emit('submit', 'test');
+    closeAbout () {
+      console.log("Closing.")
+      this.$emit('close', 'about');
     }
   }
 }

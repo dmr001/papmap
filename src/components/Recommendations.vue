@@ -51,7 +51,14 @@
         </v-select>
       </div>
     </div>
+
     <v-container>
+      <help :displayHelp="displayHelp" v-show="displayHelp" transition="slide-y-transition" @close="closeHelp"></help>
+
+      <v-overlay :value="displayAbout">
+        <about :displayAbout="displayAbout"  @close="closeAbout"></about>
+      </v-overlay>
+
       <v-row>
         <v-col>
           <v-radio-group v-model="date" @change="submitDate">
@@ -343,6 +350,8 @@
 
         </v-col>
       </v-row>
+
+      <!--
       <v-timeline v-if="recommendations[date]" dense>
         <v-timeline-item small subtitle="Recommendations">
           {{recommendations[date]}}
@@ -355,6 +364,7 @@
           <br/>
         </v-timeline-item>
       </v-timeline>
+      -->
 
     </v-container>
   </section>
@@ -371,7 +381,9 @@ import Graph from "@dagrejs/graphlib/lib/graph";
 import RiskGauge from "@/components/RiskGauge";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
 import Thumbnail from "@/components/Thumbnail";
-import colors from 'vuetify/lib/util/colors'
+import Help from "@/components/Help";
+import About from "@/components/About";
+import colors from 'vuetify/lib/util/colors';
 
 
 // import {json} from "@dagrejs/graphlib";
@@ -3154,6 +3166,12 @@ export default {
       this.top4 = !this.top4;
       // console.log(`Top 4: ${this.top4}`)
     },
+    closeHelp() {
+      this.$emit('close', 'help');
+    },
+    closeAbout() {
+      this.$emit('close', 'about');
+    },
     URLify(string) {
       return string.trim().replace(/\s/g, '%20');
     }
@@ -3161,7 +3179,9 @@ export default {
   components: {
     RiskGauge,
     ConfidenceGauge,
-    Thumbnail
+    Thumbnail,
+    Help,
+    About
   },
   computed: {
     dailyResultsTop4: function () {
@@ -3203,6 +3223,11 @@ export default {
       PAPRESULT
     }
   },
+  props: {
+    displayHelp: Boolean,
+    displayAbout: Boolean
+  },
+
   watch: {
     // scenario: function () {
     //   console.log(`Noted change in scenario: ${this.scenario}`)

@@ -12,12 +12,12 @@
             </template>
             <v-card>
               <v-list dark>
-                <v-list-item >
-                  <v-list-item-title @click="showAboutDialog">
+                <v-list-item @click="displayAbout = true">
+                  <v-list-item-title>
                     About
                   </v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="() => {}">
+                <v-list-item @click="displayHelp = true">
                   <v-list-item-title >
                     Help
                   </v-list-item-title>
@@ -37,7 +37,7 @@
     </div>
 
     <v-main>
-      <recommendations></recommendations>
+      <recommendations :displayHelp="displayHelp" :displayAbout="displayAbout" @close="closeDisplay"></recommendations>
     </v-main>
   </v-app>
 </template>
@@ -45,7 +45,6 @@
 <script>
 
 import Recommendations from "@/components/Recommendations";
-import About from "@/components/About";
 
 export default {
   name: 'App',
@@ -55,14 +54,25 @@ export default {
 
   },
   methods: {
-    showAboutDialog: function () {
-      this.$dialog.show(About);
+
+    closeDisplay: function (what) {
+      console.log("Closing display.", what)
+      if (what === 'help') {
+        this.displayHelp = false;
+      } else if (what === 'about') {
+        this.displayAbout = false;
+      }
     }
+    // showHelp: function () {
+    //   this.displayHelp = true;
+    // }
   },
 
   data() {
    return {
-     aboutDialog: true
+     aboutDialog: true,
+     displayHelp: false,
+     displayAbout: false
    }
   }
 };
