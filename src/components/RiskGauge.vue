@@ -104,7 +104,7 @@
       <text v-if="!isNaN(risk5y)" :x="xRisk5y + 2" y="17" style="fill:black;" font-family="Arial" font-weight="bolder" font-size = "12">{{ Math.round(risk5y*10)/10 }}%</text>
 -->
 
-      <text :x="xRisk5yLegend" y="17" style="fill:gray;" font-family="Arial" font-weight="bold" font-size = "11">5 year risk of CIN3+
+      <text :x="xRisk5yLegend" y="17" style="fill:gray;" font-family="Arial" font-weight="bold" font-size = "11">5-year risk of CIN3+
       </text>
 
       Sorry, your browser does not support inline SVG.
@@ -138,10 +138,11 @@ export default {
       return this.xRiskImmediate + 8 + ',22 ' + this.xRiskImmediate + 16 + ',22 ' + this.xRiskImmediate + 12 + ',28'
     },
     xRisk5y: function () {
+      // console.log("5y risk: ", this.risk5y)
       return this.risk5y <= 0.55 ? this.risk5y * 400 : 220 + (this.risk5y - 0.55) * 19.4;
     },
     xRisk5yLegend: function () {
-      return this.xRisk5y > 200 ? this.xRisk5y - 110 : this.xRisk5y + 35;
+      return this.xRisk5y > 200 ? this.xRisk5y - 118 : this.xRisk5y + 35;
     },
     xRisk5yPlus: function (x) {
       return this.xRisk5y + x;

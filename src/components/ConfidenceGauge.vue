@@ -1,7 +1,8 @@
 <template>
-  <div v-if="confidence && !isNaN(confidence)">
+  <div v-if="confidence">
     <v-badge left bordered overlap :content="Math.round(100 * confidence)/100"
-             offset-x="22" offset-y="recommendations[scenario].confidence * 10">
+             offset-x="22" :offset-y="yConfidence + 10">
+
       <svg height="50" width="55">
         <defs>
           <linearGradient id="grad1" x1="0%" y1="100%" x2="0%" y2="0%">
@@ -16,14 +17,12 @@
           </pattern>
         </defs>
 
-        <rect x="30" :y="yConfidence" width="8" :height="45 - yConfidence" fill="url(#grad1)" />
+
+
+        <rect x="30" :y="yConfidence" width="8" :height="yHeight" fill="url(#grad1)" />
+
         <rect x="30" y="5" width="8" height="40"
-              style="fill:gray;stroke:gray;stroke-width:0;fill-opacity:0.2;stroke-opacity:0.9" />
-        <!--
-                <rect v-else x="30" y="5" width="8" height="40" fill="url(#diagonalHatch)" />
-        -->
-
-
+              style="fill:transparent;stroke:black" />
 
         <text x="45" y="50" style="fill:black;" font-family="Arial" font-size = "11">0
           <tspan x="45" y="13">1</tspan>
@@ -42,9 +41,7 @@
       </svg>
 
 
-      <div v-if="myMessage">
-        {{ myMessage }}
-      </div>
+
       <div class="text-caption" >
         Confidence
       </div>
@@ -67,35 +64,38 @@
 export default {
   name: "ConfidenceGauge",
   props: {
-    confidence: undefined,   // Usually a number, but can be "special situation"
+    confidence: Number,   // Usually a number, but can be "special situation"
   },
   data () {
     return {
-      myConfidence: this.getConfidence(),
-      myMessage: ''
+      // myConfidence: this.getConfidence(),
+      // myMessage: ''
     }
   },
   methods: {
-    getConfidence() {
-      // console.log(`Confidence gauge got ${this.confidence}, a ${typeof (this.confidence)}`)
-      this.myConfidence = this.confidence;
-      this.myMessage = '';
-      if (typeof(this.confidence) != 'number') {
-        this.myMessage = "Special situation"
-        this.myConfidence = 0;
-      }
-      // console.log(`myConfidence set to ${this.myConfidence}, myMessage ${this.myMessage}`);
-      return this.myConfidence;
-    }
+    // getConfidence() {
+    //   // console.log(`Confidence gauge got ${this.confidence}, a ${typeof (this.confidence)}`)
+    //   this.myConfidence = this.confidence;
+    //   this.myMessage = '';
+    //   if (typeof(this.confidence) != 'number') {
+    //     this.myMessage = "Special situation"
+    //     this.myConfidence = 0;
+    //   }
+    //   // console.log(`myConfidence set to ${this.myConfidence}, myMessage ${this.myMessage}`);
+    //   return this.myConfidence;
+    // }
   },
   computed: {
     yConfidence: function () {
-      let y = this.myConfidence;
+      // let y = this.myConfidence;
       // let y = this.confidence;
 
-      // console.log(`getConfidence is ${y}`);
-      // console.log(`Setting yConfidence to ${40 - (y * 40)}`)
-      return (45 - (y * 40));
+      // console.log(`Confidence is ${this.confidence}`);
+      // console.log(`Setting yConfidence to ${40 - (this.confidence * 40)}`)
+      return (5 + 40 - (this.confidence * 40));
+    },
+    yHeight: function () {
+      return (45 - this.yConfidence);
     },
     confidenceTriangle: function () {
       // "43,8 43,12 40,10"
@@ -103,7 +103,7 @@ export default {
       // let points = `43,${this.yConfidence - 2} 43,${this.yConfidence + 2} 40,${this.yConfidence}`
       let points = `24,${this.yConfidence} 28,${this.yConfidence} 24,${this.yConfidence + 3}`
 
-      console.log(`Triangle points: ${points}`);
+      // console.log(`Triangle points: ${points}`);
       return points;
     }
   }

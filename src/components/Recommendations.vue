@@ -188,8 +188,14 @@
 
                 </v-col>
                 <v-col>
-                  <confidence-gauge v-if="recommendations[date]"
+                  <confidence-gauge v-if="recommendations[date] && recommendations[date].confidence"
                                     :confidence="recommendations[date].confidence"></confidence-gauge>
+                  <div v-else class="text-caption" style="text-align: center">
+                    Confidence<br/>
+                    <div>
+                      unavailable
+                    </div>
+                  </div>
                 </v-col>
 
 
@@ -565,11 +571,11 @@ const ECCRESULT = {
 const PREGNANCY = {
   colposcopy: { title: 'Colposcopy',
                 message: `ECC, EMB and treatment without biopsy are not considered acceptable in pregnancy.
-                If CIN 2/3 are diagnosed at the first colposcopy in pregnancy,
+                If CIN 2/3 is diagnosed at the first colposcopy in pregnancy,
                repeat colposcopy and cytology/HPV (depending on age) is preferred every 12-24 weeks.
 
                Repeat biopsy recommended if invasion is suspected, or the appearance of the lesion worsens.
-               Also acceptable to defer colposcopy to 4+ weeks postpartum.
+               Also acceptable: defer colposcopy to 4+ weeks postpartum.
                While risk for progression to cancer in pregnancy is low, 11% of new mothers in the US lose
                their insurance after pregnancy,
                disproportionately affecting those most at risk for cancer.` },
@@ -961,7 +967,7 @@ function ageInRange(age, node) {
   // for (i = 0; i < node.length; i++) {
   if (node.ageRange) {
     [min, max] = node.ageRange.split('-');
-    // console.log(`Is ${age} between ${min} and ${max}?`)
+    console.log(`Is ${age} between ${min} and ${max}?`)
     if (age >= min && (age <= max || (age > max && age > MAX_TYPICAL_AGE))) {
       return true;
     }
@@ -1001,6 +1007,21 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
       node.cin3risk5y = -1;
     }
     return (node)
+  } else if (scenario === SCENARIO.papAfterColposcopy && node.leaf && node.preColposcopy) {
+    // Same as above - did we land on a matching leaf? But in the case of Pap after colposcopy, we need to look at the result
+    // prior to the colposcopy, not the colposcopy itself
+    if (dailyResults[date].colposcopy && priorDate) {
+      console.log(`Looking prior to colposcopy at results on ${priorDate}: `, dailyResults[priorDate]);
+      if (ageInRange(dailyResults[priorDate].age, node) && node.procedure == dailyResults[priorDate].pap && (node.hpv === dailyResults[priorDate].hpv || node.hpv === 'Any')) {
+        console.log(`Burrow: matched pre-colposcopy ${nodeName} at entry, level ${level}, scenario ${scenario}`);
+        if (isNaN(node.cin3risk5y)) {
+          node.cin3risk5y = -1;
+        }
+        return (node)
+      } else {
+        console.log(`Didn't match. Age in range: ${ageInRange(dailyResults[priorDate].age, node)}, Pap match: ${node.procedure == dailyResults[priorDate].pap}`);
+      }
+    }
   }
   console.log("Children:", scenarioTree.outEdges(nodeName));
 
@@ -1192,19 +1213,21 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
                   }
                 }
               } else if (dailyResults[priorDate].colposcopy) {
-                let priorPriorDate = getPriorDate(dailyResults, priorDate);
+                // let priorPriorDate = getPriorDate(dailyResults, priorDate);
 
-                console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorPriorDate} and lower node.`)
+                // console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorPriorDate} and lower node.`)
+                console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorDate} and lower node.`)
+
                 console.log(`Children of child node ${childNodeName}:`);
                 console.log(scenarioTree.outEdges(childNodeName));
 
 
-                if (priorPriorDate) {
-                  node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorPriorDate, patient, false, true);
+                // if (priorPriorDate) {
+                  node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, priorDate, patient, false, true);
                   if (node) {
                     return node;
                   }
-                }
+                // }
                 // if (priorPriorDate) {
                 //   childNodeList2 = scenarioTree.outEdges(childNodeName);
                 //
@@ -1319,7 +1342,7 @@ function isThereHSILWithin25y(dailyResults, date) {
   dateList.sort(function (a, b) {
     return new Date(a.date) - new Date(b.date);
   });
-  console.log("Datelist: ", dateList)
+  // console.log("Datelist: ", dateList)
   for (i = 0; i < dateList.length; i++) {
     if (Date.parse(date) >= Date.parse(dateList[i])) {
       // console.log(`Looking for HSIL on ${i}, ${dateList[i]}`)
@@ -1627,6 +1650,7 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, 
     // figure.push(FIGURE['11']);
     addFigure(figure, 11);
   }
+
 
   if (dailyResults[date].pap === PAPRESULT.agc || dailyResults.pap === PAPRESULT.agcfn) {
     // figure.push(FIGURE['11']);
@@ -2001,11 +2025,6 @@ function addPapSynonyms(tree, papResult, hpvResult, ageRange, scenario, leaf, fi
   console.log(`Handling synonyms (in addPapSynonyms) of ${papResult}: ${papResults}`);
   papResults.forEach(papSynonym => {
 
-    if (papSynonym === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
-      // figure.push(FIGURE['3']);
-      addFigure(figure, 3);
-
-    }
 
     if (papSynonym === PAPRESULT.ais) {
       addPregnancyWarning(pregnancy, 'ais');
@@ -2120,12 +2139,6 @@ function makeScenarioTree(scenarioTable) {
 
           // Handle HPV result of Any during interpretation step
 
-          if (papResult === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
-            // figure.push(FIGURE['3']);
-            addFigure(figure, 3);
-
-          }
-
           if (papResult === PAPRESULT.ais) {
             addPregnancyWarning(pregnancy, 'ais')
           }
@@ -2192,7 +2205,7 @@ function makeScenarioTree(scenarioTable) {
           }
 
 
-          addPregnancyColpoTxWarning(pregnancy, scenarioTable[i][0][j]['Management']);
+          addPregnancyColpoTxWarning(pregnancy, management);
           console.log("Pregnancy warning: ", pregnancy);
 
           // Handle the first sub-node
@@ -2265,7 +2278,7 @@ function makeScenarioTree(scenarioTable) {
             }
             [papResult, hpvResult] = splitCombinedResult(scenarioTable[i][0][j]['PAST HISTORY (previous 2)']);
 
-            addPregnancyColpoTxWarning(pregnancy, scenarioTable[i][0][j]['Management'])
+            addPregnancyColpoTxWarning(pregnancy, management);
 
             node = {
               procedure: papResult,
@@ -2373,7 +2386,7 @@ function makeScenarioTree(scenarioTable) {
               // }
               //
               // Handle HSIL+ by storing it in a bunch of synonym nodes
-              if (papResult === PAPRESULT.asch && (histologyResult.isInList(COLPORESULT.cin1, '<CIN1'))) {
+              if (papResult === PAPRESULT.asch && (histologyResult.isInList(COLPORESULT.cin1))) {
                 // figure.push(FIGURE['10']);
                 addFigure(figure, 10);
 
@@ -2419,7 +2432,7 @@ function makeScenarioTree(scenarioTable) {
 
             }
 
-            addPregnancyColpoTxWarning(pregnancy, scenarioTable[i][0][j]['Management'])
+            addPregnancyColpoTxWarning(pregnancy, management)
 
 
             node = {
@@ -2465,6 +2478,11 @@ function makeScenarioTree(scenarioTable) {
               immunocompromise = MANAGEMENT.followup6m;
               immunocompromiseNote = "Repeat cytology in 6-12 months, with colposcopy for ASC-US or higher";
             }
+          }
+
+          if (management === MANAGEMENT.followup5y) {
+            immunocompromise = MANAGEMENT.followup3y
+            immunocompromiseNote = "Maximum 3 year screening intervals recommended for immunocompromised patients (annually for 3 years x 3 then q 3y, with cytology only until age 30, then cytology or co-testing age 30+)."
           }
 
           // Entries in the ASCCP table like High Grade or ASCUS/LSIL stand for a bunch of possible Pap results
@@ -2637,11 +2655,12 @@ function makeScenarioTree(scenarioTable) {
                 addPregnancyWarning(pregnancy, 'ais');
               }
 
-              if (papSynonym === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
-                // figure.push(FIGURE['3']);
-                addFigure(figure, 3);
+              // if (papSynonym === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
+              //   // figure.push(FIGURE['3']);
+              //   addFigure(figure, 3);
+              // }
+              //
 
-              }
               if (papSynonym === PAPRESULT.nilm + '|' + HPVRESULT.hpvPositive) {
                 papSynonym = PAPRESULT.nilm;
                 hpvResult = HPVRESULT.hpvPositive;
@@ -2706,10 +2725,10 @@ function makeScenarioTree(scenarioTable) {
                 //
                 // }
 
-                if (papSynonym === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
-                  // figure.push(FIGURE['3']);
-                  addFigure(figure, 3);
-                }
+                // if (papSynonym === PAPRESULT.agc || papResult === PAPRESULT.agcfn) {
+                //   // figure.push(FIGURE['3']);
+                //   addFigure(figure, 3);
+                // }
 
                 if (papSynonym === PAPRESULT.ais) {
                   addPregnancyWarning(pregnancy, 'ais');
