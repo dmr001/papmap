@@ -2,10 +2,10 @@
 
   <div>
 
-  <div v-if="!isNaN(riskImmediate) && riskImmediate >= 4">
+  <div v-if="!isNaN(riskImmediate) && riskImmediate >= 4" class="px-2">
     <v-badge left bordered overlap :content="Math.round(10 * riskImmediate)/10 + '%'"
              offset-y="23" :offset-x="xRiskImmediate + 32">
-    <svg height="80" width="500">
+    <svg height="65" width="390">
       <defs>
         <linearGradient id="gradImmediate" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style="stop-color:rgb(255,255,0);stop-opacity:1" />
@@ -38,7 +38,7 @@
       <text x="0" y="57" style="fill:black;" font-family="Arial" font-size = "11">4%
         <tspan x="77" y="57">25%</tspan>
         <tspan x="218" y="57">60%</tspan>
-        <tspan x="370" y="57">100%</tspan>
+        <tspan x="362" y="57">100%</tspan>
       </text>
 
 
@@ -56,10 +56,10 @@
     </v-badge>
   </div>
 
-  <div v-if="!isNaN(risk5y) && risk5y <= 9 && risk5y >= 0">
+  <div v-if="!isNaN(risk5y) && risk5y <= 9 && risk5y >= 0" class="px-2">
     <v-badge left bordered overlap :content="Math.round(100 * risk5y)/100 + '%'"
              offset-y="23" :offset-x="xRisk5y + 33">
-    <svg height="80" width="500">
+    <svg height="65" width="390">
       <defs>
         <linearGradient id="grad5y" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" style="stop-color:rgb(0,255,0);stop-opacity:1" />

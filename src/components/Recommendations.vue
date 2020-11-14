@@ -55,7 +55,7 @@
     <v-container>
       <help :displayHelp="displayHelp" v-show="displayHelp" transition="slide-y-transition" @close="closeHelp"></help>
 
-      <v-overlay :value="displayAbout">
+      <v-overlay opacity="0.7" :value="displayAbout">
         <about :displayAbout="displayAbout"  @close="closeAbout"></about>
       </v-overlay>
 
