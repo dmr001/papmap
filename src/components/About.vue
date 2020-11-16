@@ -3,21 +3,27 @@
   <v-layout>
 
     <v-card>
+
       <v-card-title class="text-subtitle-1" :style=" { backgroundColor: colors.purple.lighten2 }">
-        <img src="speculum.svg" width="80" height="80" class="pa-2">
+
         <v-row>
           <v-col>
-            <v-divider vertical></v-divider>
-
-            <span class="pa-3">
+            <v-icon small color="black" @click="closeAbout">mdi-close</v-icon>
+          </v-col>
+          <v-col cols="8" class="align-content-center flex-column">
+            <img src="speculum.svg" width="80" height="80" class="pa-2 mx-n9">
+            <v-divider class="pa-3 mx-3" vertical></v-divider>
+            <span class="pa-2 mx-0 ">
               Pap<b>Map</b>
             </span>
 
           </v-col>
-          <v-col>
+          <v-col align="left" cols="3">
             <div class="text-caption">
+              <br/>
               Daniel Rosenberg MD<br/>
-              Providence Medical Group, Portland, OR
+              Providence Medical Group<br/>
+              Portland, OR
               <br/>
             </div>
           </v-col>

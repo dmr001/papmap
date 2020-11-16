@@ -3,6 +3,9 @@
   <div >
     <v-card>
       <v-card-title class="text-subtitle-1" :style=" { backgroundColor: colors.purple.lighten5 }">
+
+          <v-icon small color="black" @click="closeHelp">mdi-close</v-icon>
+
       <span class="px-3">
         Pap<b>Map</b>
       </span>
