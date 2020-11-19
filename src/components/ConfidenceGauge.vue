@@ -101,10 +101,8 @@ export default {
       // "43,8 43,12 40,10"
       // let points = '43 ,'.toString() + this.yConfidence - 2 + ' 43,' + this.yConfidence + 2 + ' 40,' + this.yConfidence
       // let points = `43,${this.yConfidence - 2} 43,${this.yConfidence + 2} 40,${this.yConfidence}`
-      let points = `24,${this.yConfidence} 28,${this.yConfidence} 24,${this.yConfidence + 3}`
+      return `24,${this.yConfidence} 28,${this.yConfidence} 24,${this.yConfidence + 3}`
 
-      // console.log(`Triangle points: ${points}`);
-      return points;
     }
   }
 }

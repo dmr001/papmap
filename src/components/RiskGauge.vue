@@ -126,7 +126,7 @@ export default {
   },
   computed: {
     xRiskImmediate: function () {
-      return this.riskImmediate * 4 - 8;
+      return this.riskImmediate * 4 - 16;
     },
     xRiskImmediateLegend: function () {
       return this.xRiskImmediate > 200 ? this.xRiskImmediate - 140 : this.xRiskImmediate + 35;
@@ -135,11 +135,10 @@ export default {
       return this.xRiskImmediate + x;
     },
     xRiskImmediateTriangle: function () {
-      return this.xRiskImmediate + 8 + ',22 ' + this.xRiskImmediate + 16 + ',22 ' + this.xRiskImmediate + 12 + ',28'
+      return `${this.xRiskImmediate + 8},22 ${this.xRiskImmediate + 16},22 ${this.xRiskImmediate + 8},28`;
     },
     xRisk5y: function () {
-      // console.log("5y risk: ", this.risk5y)
-      return this.risk5y <= 0.55 ? this.risk5y * 400 : 220 + (this.risk5y - 0.55) * 19.4;
+      return (this.risk5y <= 0.55 ? this.risk5y * 400 : 220 + (this.risk5y - 0.55) * 19.4);
     },
     xRisk5yLegend: function () {
       return this.xRisk5y > 200 ? this.xRisk5y - 118 : this.xRisk5y + 35;
@@ -148,7 +147,7 @@ export default {
       return this.xRisk5y + x;
     },
     xRisk5yTriangle: function () {
-      return this.xRisk5y + 8 + ',22 ' + this.xRisk5y + 16 + ',22 ' + this.xRisk5y + 12 + ',28'
+      return `${this.xRisk5y + 8},22 ${this.xRisk5y + 16},22 ${this.xRisk5y + 8},28`;
     }
   }
 }

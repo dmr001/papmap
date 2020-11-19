@@ -330,12 +330,13 @@
                         :risk5y="recommendations[date].cin3risk5y"></risk-gauge>
           </v-card>
 
-          <v-card v-if="recommendations[date] && recommendations[date].figure">
-
+          <v-card v-if="recommendations[date] && recommendations[date].figure &&  recommendations[date].figure.length">
+            <v-icon>
+              mdi-view-quilt
+            </v-icon>
               <span v-for="(figure) in recommendations[date].figure" :key="figure.file">
                 <!-- <embed width="191" height="207" name="plugin"
                        :src="recommendations[date][scenario].figure" type="application/pdf"> -->
-
                 <a :href="`/${figure.file}`" target="_blank"> {{ figure.title }}</a>
                 <thumbnail :filename="figure.file" :url="`http://${location.host}/${URLify(figure.file)}`"></thumbnail>
 
@@ -348,13 +349,14 @@
             <v-row>
               <v-col>
                 <v-card-title>
-                  <v-alert border="left" color="accent" elevation="1">
+
+                  <v-alert border="left" color="accent" elevation="1" class="pa-3">
                     Unreconciled data
                   </v-alert>
                 </v-card-title>
               </v-col>
               <v-col>
-                <v-simple-table dense>
+                <v-simple-table dense >
                   <tbody>
                   <tr v-for="data in notes[date]['unreconciledData']" :key="data.date">
                     <td class="text-caption" style="background-color: palegoldenrod">{{ data.date }}</td> <td style="text-transform: capitalize;background-color: skyblue">{{ data.result }}</td>
@@ -365,7 +367,7 @@
 
               </v-col>
             </v-row>
-            <v-card-subtitle class="text-body-2">
+            <v-card-subtitle class="text-body-2 py-1">
               Unreconciled data invalidates all subsequent recommendations. Reconcile the missing findings noted above, then refresh.
             </v-card-subtitle>
           </v-card>
@@ -449,6 +451,7 @@ import colors from 'vuetify/lib/util/colors';
 const MAX_TYPICAL_AGE = 65;
 
 const FIGURE = {
+  '2': {file: 'figures/Figure 2.pdf', title: "Figure 2"},
   '3': {file: 'figures/Figure 3.pdf', title: "Figure 3"},
   '4': {file: 'figures/Figure 4.pdf', title: "Figure 4"},
   '5': {file: 'figures/Figure 5.pdf', title: "Figure 5"},
@@ -693,7 +696,7 @@ const SCENARIO = {
 const papExpansion = {
   'HSIL+': [PAPRESULT.hsil, PAPRESULT.adenocarcinoma, PAPRESULT.ais, PAPRESULT.scc, PAPRESULT.agcfn],
   'High Grade': [PAPRESULT.hsil, PAPRESULT.asch, PAPRESULT.agc, PAPRESULT.adenocarcinoma, PAPRESULT.ais, PAPRESULT.scc, PAPRESULT.agcfn],
-  'Low Grade': [PAPRESULT.ascus, PAPRESULT.lsil, PAPRESULT.nilm + '|' + HPVRESULT.hpvPositive],
+  'Low Grade': [PAPRESULT.ascus, PAPRESULT.lsil, PAPRESULT.nilm + '|' + HPVRESULT.hpvPositive], // ASCUS/LSIL + anyHPV or NILM + HPV-positive
   'ASC_US': [PAPRESULT.ascus],
   'ASCUS/LSIL': [PAPRESULT.ascus, PAPRESULT.lsil],
   'ASC-US/LSIL': [PAPRESULT.ascus, PAPRESULT.lsil],
@@ -1867,74 +1870,74 @@ function getPatientResults() {
   //   { date: '3/28/2018', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
   // ];
 
-  ccsResults = [
-    {date: '9/24/2020', procedure: 'Excision', result: ['CIN2', 'Margins Negative']},
-    {date: '6/5/2020', procedure: 'Colposcopy', result: 'CIN2'},
-    {date: '5/15/2020', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '5/15/2020', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '5/15/2020', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '5/15/2020', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '1/20/2017', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    {date: '6/17/2016', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    {date: '11/20/2015', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
-    {date: '11/20/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '11/20/2015', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '11/20/2015', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '5/18/2015', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '5/18/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '5/18/2015', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '5/18/2015', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '5/18/2015', procedure: 'Colposcopy', result: 'Normal'},
-    {date: '11/4/2014', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
-    {date: '11/4/2014', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '11/4/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '11/4/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '9/5/2014', procedure: 'Colposcopy', result: 'CIN2'},
-    {date: '8/1/2014', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '8/1/2014', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '8/1/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '8/1/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  ];
-
   // ccsResults = [
-  //   {date: '11/4/2020', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-  //   {date: '11/4/2020', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
-  //   {date: '10/4/2015', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-  //   {date: '10/4/2015', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
-  //   {date: '6/6/2010', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-  //   {date: '6/6/2010', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
-  //   {date: '6/18/2008', procedure: 'Colposcopy', result: 'Normal'},
-  //   {date: '5/15/2008', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '5/15/2008', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '5/15/2008', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  //   {date: '5/15/2008', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-  //   {date: '1/20/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-  //   {date: '1/20/2007', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '1/20/2007', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '1/20/2007', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  //   {date: '6/17/2006', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-  //   {date: '6/17/2006', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '6/17/2006', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '6/17/2006', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  //   {date: '11/20/2005', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
-  //   {date: '11/20/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '11/20/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '11/20/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  //   {date: '5/18/2005', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-  //   {date: '5/18/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '5/18/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '5/18/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  //   {date: '5/18/2005', procedure: 'Colposcopy', result: 'Normal'},
-  //   {date: '11/4/2004', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
-  //   {date: '11/4/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '11/4/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '11/4/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-  //   {date: '9/5/2004', procedure: 'Colposcopy', result: 'CIN1'},
-  //   {date: '8/1/2004', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-  //   {date: '8/1/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-  //   {date: '8/1/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-  //   {date: '8/1/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '9/24/2020', procedure: 'Excision', result: ['CIN2', 'Margins Negative']},
+  //   {date: '6/5/2020', procedure: 'Colposcopy', result: 'CIN2'},
+  //   {date: '5/15/2020', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '5/15/2020', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '5/15/2020', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '5/15/2020', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '1/20/2017', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   {date: '6/17/2016', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   {date: '11/20/2015', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
+  //   {date: '11/20/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '11/20/2015', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '11/20/2015', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '5/18/2015', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '5/18/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '5/18/2015', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '5/18/2015', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '5/18/2015', procedure: 'Colposcopy', result: 'Normal'},
+  //   {date: '11/4/2014', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
+  //   {date: '11/4/2014', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '11/4/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '11/4/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '9/5/2014', procedure: 'Colposcopy', result: 'CIN2'},
+  //   {date: '8/1/2014', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '8/1/2014', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '8/1/2014', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '8/1/2014', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
   // ];
+
+  ccsResults = [
+    {date: '11/4/2020', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '11/4/2020', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '10/4/2015', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '10/4/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '6/6/2010', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '6/6/2010', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '6/18/2008', procedure: 'Colposcopy', result: 'Normal'},
+    {date: '5/15/2008', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '5/15/2008', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '5/15/2008', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '5/15/2008', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '1/20/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '1/20/2007', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '1/20/2007', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '1/20/2007', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '6/17/2006', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '6/17/2006', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '6/17/2006', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '6/17/2006', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '11/20/2005', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
+    {date: '11/20/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '11/20/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '11/20/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '5/18/2005', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '5/18/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '5/18/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '5/18/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '5/18/2005', procedure: 'Colposcopy', result: 'Normal'},
+    {date: '11/4/2004', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
+    {date: '11/4/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '11/4/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '11/4/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '9/5/2004', procedure: 'Colposcopy', result: 'CIN1'},
+    {date: '8/1/2004', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '8/1/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '8/1/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '8/1/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  ];
 
   // Process the input to get the nomenclature to match the ASCCP spreadsheets
   // Combine all the HPV results from one date into one result
@@ -2535,6 +2538,10 @@ function makeScenarioTree(scenarioTable) {
             }
           }
 
+          if (scenarioTable[i][0][j]['Figure']) {
+            addFigure(figure, scenarioTable[i][0][j]['Figure'])
+          }
+
           if (papResult && papResult != PAPRESULT.nilm && management.notInList(MANAGEMENT.colposcopy, MANAGEMENT.colposcopyOrTreatment)) {
             immunocompromise = MANAGEMENT.colposcopy;
             if (papResult === PAPRESULT.ascus && !hpvResult) {
@@ -2573,6 +2580,7 @@ function makeScenarioTree(scenarioTable) {
 
           nodeName = `${node.scenario}|${node.procedure}|${node.hpv}`;
           if (!tree.hasNode(nodeName)) {
+            // console.log(`&&& Scenario 4 primary sub-node: ${nodeName}`)
             tree.setNode(nodeName, node)
           }
           previousNodeName = nodeName;
@@ -2596,6 +2604,7 @@ function makeScenarioTree(scenarioTable) {
           // Handle first sub-node
           // if (i === SCENARIO.papAfterColposcopy) { // Scenario 4
           papResult = scenarioTable[i][0][j]['Post-Colpo Test Result - PAST HISTORY'];
+          hpvResult = scenarioTable[i][0][j]['Post-Colpo HPV Result - PAST HISTORY'];
 
           if (papResult && papResult.includes('x2')) {
             // Handle an extra node for things like Cotest-negative x2
@@ -2635,7 +2644,9 @@ function makeScenarioTree(scenarioTable) {
             previousNodeName = nodeName;
 
           } else {  // Handle the non-x2 results
-            [papResult, hpvResult] = splitCombinedResult(papResult);
+            if (!hpvResult) {
+              [papResult, hpvResult] = splitCombinedResult(papResult);
+            }
             if (typeof (papResult) === 'object') { // Scalar, not array
 
               // This synonym node goes below the following two
@@ -2701,12 +2712,37 @@ function makeScenarioTree(scenarioTable) {
             }
           }
 
+          // In the custom 4.1 table we added a prior set of post-colpo results; handle those here
+          papResult = scenarioTable[i][0][j]['Post-Colpo Test Result - Prior PAST HISTORY'];
+          hpvResult = scenarioTable[i][0][j]['Post-Colpo HPV Result - Prior PAST HISTORY'];
+          if (papResult) {
+            nodeName = `${i}-${j}-${++k}|${papResult}|${hpvResult}`
+            console.log(`&&& Scenario 4 supplemental node: ${nodeName}`);
+            node = {
+              procedure: papResult,
+              hpv: hpvResult,
+              ageRange: scenarioTable[i][0][j]['Age'],
+              scenario: i,
+              preColposcopy: false,
+              synonym: false,
+              leaf: false
+            };
+            if (!tree.hasNode(nodeName)) {
+              console.log(`&&& Scenario 4 supplemental node: ${nodeName}`);
+
+              tree.setNode(nodeName, node)
+            }
+            tree.setEdge(previousNodeName, nodeName);
+            previousNodeName = nodeName;
+
+          }
 
           // console.log(`Made ${nodeName} a child of of ${previousNodeName}`);
           // console.log(tree.children(previousNodeName))
           // previousNodeName = nodeName;
 
-          // Handle the second sub-node for Scenario 4; it's all "Low Grade" or "High Grade"
+          // Handle the second sub-node for Scenario 4; it's usually "Low Grade" or "High Grade"
+          // THough we have more specific results in the 4.1 supplemental spreadsheet
           papResult = scenarioTable[i][0][j]['Pre-Colpo Test Result'];
           if (papResult === 'Low Grade' || papResult === 'High Grade') {
             nodeName = `${i}-${j}-${k}|${papResult}`
@@ -2731,8 +2767,8 @@ function makeScenarioTree(scenarioTable) {
                 hpvResult = 'Any' // For high grade and low grade Paps we generally don't seem to care about the HPV result except for NILM cytology
               }
 
-              addPregnancyColpoTxWarning(pregnancy, scenarioTable[i][0][j]['Management'])
-              console.log("Scenario 4 pregnancy warning added: ", pregnancy);
+              addPregnancyColpoTxWarning(pregnancy, management)
+              // console.log("Scenario 4 pregnancy warning added: ", pregnancy);
 
               node = {
                 procedure: papSynonym,
@@ -2763,6 +2799,36 @@ function makeScenarioTree(scenarioTable) {
             // console.log(`+++ Scenario ${i}, children of ${previousNodeName}`)
             // console.log(tree.outEdges(previousNodeName));
 
+          } else {
+            nodeName = `${i}-${j}-${k}|${papResult}|${hpvResult}`;
+            addPregnancyColpoTxWarning(pregnancy, management)
+            if (hpvResult === '') {
+              hpvResult = 'Any';
+            }
+
+            node = {
+              procedure: papResult,
+              hpv: hpvResult,
+              preColposcopy: true,
+              // synonym: true,
+              scenario: i,
+              pregnancy: pregnancy,
+              immunocompromise: immunocompromise,
+              immunocompromiseNote: immunocompromiseNote,
+              figure: figure,
+              ageRange: scenarioTable[i][0][j]['Age'],
+              management: management,
+              cin3risk: scenarioTable[i][0][j]['CIN3+ Immediate risk (%)'],
+              cin3risk5y: scenarioTable[i][0][j]['CIN3+ 5 year risk  (%)'],
+              confidence: scenarioTable[i][0][j]['Management Confidence Probability'],
+              notes: scenarioTable[i][0][j]['Notes'],
+              leaf: true
+            }
+
+            if (!tree.hasNode(nodeName)) {
+              tree.setNode(nodeName, node);
+            }
+            tree.setEdge(previousNodeName, nodeName);
           }
 
           break;
