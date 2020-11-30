@@ -10,8 +10,8 @@
 
 // import * as pdfjs from "pdfjs-dist"
 import pdfjs from "@bundled-es-modules/pdfjs-dist/build/pdf";
-pdfjs.GlobalWorkerOptions.workerSrc =
-    "@bundled-es-modules/pdfjs-dist/pdf.worker.js";
+// pdfjs.GlobalWorkerOptions.workerSrc =
+//     "@bundled-es-modules/pdfjs-dist/pdf.worker.js";
 
 // import { PDFViewer } from "pdfjs-dist/web/pdf_viewer"
 // import "pdfjs-dist/web/pdf_viewer.css"
@@ -45,12 +45,12 @@ export default {
   methods: {
     async getPdf() {
       if (!pdfjs.workerSrc) {
-        // pdfjs.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.js';
-        // pdfjs.workerSrc = 'lib/pdf.worker.js';
+        pdfjs.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.js';
+        pdfjs.workerSrc = 'lib/pdf.worker.js';
 
-        pdfjs.GlobalWorkerOptions.workerSrc =
-            "bundled-es-modules/pdfjs-dist/pdf.worker.js";
-        pdfjs.workerSrc = "bundled-es-modules/pdfjs-dist/pdf.worker.js";
+        // pdfjs.GlobalWorkerOptions.workerSrc =
+        //     "bundled-es-modules/pdfjs-dist/pdf.worker.js";
+        // pdfjs.workerSrc = "bundled-es-modules/pdfjs-dist/pdf.worker.js";
         console.log(`PDFjs workersrc reset to = ${pdfjs.workerSrc}`);
 
       }

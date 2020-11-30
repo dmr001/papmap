@@ -643,7 +643,7 @@ const PREGNANCY = {
                 If CIN 2/3 is diagnosed at the first colposcopy in pregnancy,
                repeat colposcopy and cytology/HPV (depending on age) is preferred every 12-24 weeks.
 
-               Repeat biopsy recommended if invasion is suspected, or the appearance of the lesion worsens.
+               If invasion is suspected, or the appearance of the lesion worsens, repeat biopsy recommended.
                Also acceptable: defer colposcopy to 4+ weeks postpartum.
                While risk for progression to cancer in pregnancy is low, 11% of new mothers in the US lose
                their insurance after pregnancy,
@@ -1052,11 +1052,12 @@ function ageInRange(age, node) {
 
 // synonym: are we being called from a synonym? If so, no need to check for matches - we already matched
 // preColposcopy: in scenario 4, we skipped over a colposcopy result and are looking for pre-colpo results
-function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, patient, synonym, preColposcopy) {
+function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, originalDate, patient, synonym, preColposcopy) {
   let node, childNodeList, childNodeName, i, priorDate;
   // let j, childNodeList2;
 
   priorDate = getPriorDate(dailyResults, date);
+
 
   console.log(`Burrowing: scenario ${scenario}, searching for node ${nodeName}, date ${date}, level ${level}`) // ${scenarioTree.outEdges(nodeName).length} children:`)
   // console.log(scenarioTree.outEdges(nodeName));
@@ -1067,10 +1068,18 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
   }
   node = scenarioTree.node(nodeName);
 
+
+  if (!dailyResults[date].pap) {  // handles HPV-only screens
+    dailyResults[date].pap = '';
+  }
+  if (!dailyResults[date].hpv) {  // Handles Pap only results
+    dailyResults[date].hpv = '';
+  }
   console.log("Landed on this node to start:", node);
   console.log("Daily results: ", dailyResults[date])
 
-  if (node.leaf && ageInRange(dailyResults[date].age, node) && node.procedure === dailyResults[date].pap && (node.hpv === dailyResults[date].hpv || node.hpv === 'Any') && !dailyResults[date].colposcopy) {
+  if (node.leaf && ageInRange(dailyResults[originalDate].age, node) && node.procedure === dailyResults[date].pap &&
+      (node.hpv === dailyResults[date].hpv || node.hpv === 'Any') && !dailyResults[date].colposcopy) {
     console.log(`Burrow: matched ${nodeName} at entry, level ${level}, scenario ${scenario}`);
     if (isNaN(node.cin3risk5y)) {
       node.cin3risk5y = -1;
@@ -1081,25 +1090,19 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
     // prior to the colposcopy, not the colposcopy itself
     if (dailyResults[date].colposcopy && priorDate) {
       console.log(`Looking prior to colposcopy at results on ${priorDate}: `, dailyResults[priorDate]);
-      if (ageInRange(dailyResults[priorDate].age, node) && node.procedure == dailyResults[priorDate].pap && (node.hpv === dailyResults[priorDate].hpv || node.hpv === 'Any')) {
+      if (ageInRange(dailyResults[originalDate].age, node) && node.procedure == dailyResults[priorDate].pap && (node.hpv === dailyResults[priorDate].hpv || node.hpv === 'Any')) {
         console.log(`Burrow: matched pre-colposcopy ${nodeName} at entry, level ${level}, scenario ${scenario}`);
         if (isNaN(node.cin3risk5y)) {
           node.cin3risk5y = -1;
         }
         return (node)
       } else {
-        console.log(`Didn't match. Age in range: ${ageInRange(dailyResults[priorDate].age, node)}, Pap match: ${node.procedure == dailyResults[priorDate].pap}`);
+        console.log(`Didn't match. Age in range: ${ageInRange(dailyResults[originalDate].age, node)}, Pap match: ${node.procedure == dailyResults[priorDate].pap}`);
       }
     }
   }
   console.log("Children:", scenarioTree.outEdges(nodeName));
 
-  if (!dailyResults[date].pap) {  // handles HPV-only screens
-    dailyResults[date].pap = '';
-  }
-  if (!dailyResults[date].hpv) {  // Handles Pap only results
-    dailyResults[date].hpv = '';
-  }
 
   if (date) {   // We haven't run out of results yet
     switch (scenario) {
@@ -1108,57 +1111,74 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
       case SCENARIO.papPriorAbnormal: // Scenario 2
 
         childNodeList = scenarioTree.outEdges(nodeName);
-        if (node.synonym) {
-          synonym = true; // May also be true if !node.synonym (e.g., if it's passed in)
-        }
+        // if (node.synonym) {
+        //   synonym = true; // May also be true if !node.synonym (e.g., if it's passed in)
+        // }
         for (i = 0; i < childNodeList.length; i++) {
           childNodeName = childNodeList[i]['w'];
-          console.log(`Burrow scenario ${scenario} considering child node ${childNodeName}`)
+          console.log(`Burrow scenario ${scenario} considering child node ${i + 1} of ${childNodeList.length}, ${childNodeName}`)
           node = scenarioTree.node(childNodeName);
           console.log(node);
 
-          if (node.synonym || childNodeName.startsWith('s|')) {
-            console.log("It's a synonym. Burrowing downward.")
-            node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, patient, true, false);
-            return (node);
-          } else if (!priorDate) {
+
+          if (priorDate) {
+
+
+            if (!dailyResults[priorDate].pap) {  // handles HPV-only screens
+              dailyResults[priorDate].pap = '';
+            }
+            if (!dailyResults[priorDate].hpv) {  // Handles Pap only results
+              dailyResults[priorDate].hpv = '';
+            }
+
+
+            if (node.synonym || childNodeName.startsWith('s|')) {
+              console.log("It's a synonym. Burrowing downward.")
+              node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, originalDate, patient, true, false);
+              if (node) {
+                return (node);
+              }
+            // } else if (node.procedure === dailyResults[priorDate].pap &&
+            //       (node.hpv == dailyResults[priorDate].hpv || node.hpv === "Any")) {
+            //   console.log("It's a match. Burrowing downward.")
+            //
+            //   node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, patient, false, false);
+            //   return (node);
+            } else {
+              console.log(`Does ${childNodeName} match with ${dailyResults[priorDate].pap}|${dailyResults[priorDate].hpv} - age ${dailyResults[priorDate].age}, done on ${date}?`)
+              // console.log("Child node: ", node);
+              // Got rid of synonym || below
+              if ((ageInRange(dailyResults[originalDate].age, node) && node.procedure === dailyResults[priorDate].pap &&
+                  (node.hpv === dailyResults[priorDate].hpv || node.hpv === "Any") )) {
+                console.log(`It does (Synonym ${synonym}).`);
+
+                if (node.leaf) {
+                  console.log(`Burrow: matched ${childNodeName} at level ${level}, scenario ${scenario}`);
+                  if (isNaN(node.cin3risk5y)) {
+                    node.cin3risk5y = -1;
+                  }
+                  return (node);
+                } else {
+                  console.log("Burrowing further (it's not a leaf)");
+
+                  node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, originalDate, patient, false, false);
+                  if (node) {
+                    return (node);
+                  }
+
+                }
+              } else {
+                console.log("It doesn't match.");
+              }
+            }
+          } else {  // !priorDate
             console.log("No prior results found.")
-            if (node.noHistory &&  ageInRange(dailyResults[date].age, node)) {
+            if (node.noHistory && ageInRange(dailyResults[originalDate].age, node)) {
               console.log(`Ran out of results at a NO HISTORY node: that's a match.`);
               if (isNaN(node.cin3risk5y)) {
                 node.cin3risk5y = -1;
               }
               return (node);
-            }
-          } else if (node.procedure === dailyResults[priorDate].pap && (node.hpv == dailyResults[priorDate].hpv || node.hpv === "Any")) {
-            console.log("It's a match. Burrowing downward.")
-
-            node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, patient, false, false);
-            return (node);
-          } else {
-            console.log(`Does ${childNodeName} match with ${dailyResults[priorDate].pap}|${dailyResults[priorDate].hpv} - age ${dailyResults[priorDate].age}, done on ${date}?`)
-            console.log("Child node: ", node);
-            if (synonym || (ageInRange(dailyResults[priorDate].age, node) && node.procedure === dailyResults[priorDate].pap &&
-                (node.hpv === dailyResults[priorDate].hpv || node.hpv === "Any") && ageInRange(dailyResults[priorDate].age, node))) {
-              console.log(`It does.`);
-
-              if (node.leaf) {
-                console.log(`Burrow: matched ${childNodeName} at level ${level}, scenario ${scenario}`);
-                if (isNaN(node.cin3risk5y)) {
-                  node.cin3risk5y = -1;
-                }
-                return (node);
-              } else {
-                console.log("Burrowing further (it's not a leaf)");
-                if (priorDate) {
-                  node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, patient, false, false);
-                  return (node);
-                } else {
-                  return null;
-                }
-              }
-            } else {
-              console.log("It doesn't match.");
             }
           }
         }
@@ -1167,7 +1187,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
       case SCENARIO.postColposcopy:   // Scenario 3
         // node = scenarioTree.node(nodeName);
 
-        if (node.leaf && ageInRange(dailyResults[date].age, node)) { // Higher grade biopsies show up as primary leaf nodes (with '-' as the Referral screen result;
+        if (node.leaf && ageInRange(dailyResults[originalDate].age, node)) { // Higher grade biopsies show up as primary leaf nodes (with '-' as the Referral screen result;
           if (isNaN(node.cin3risk5y)) {
             node.cin3risk5y = -1;
           }
@@ -1180,7 +1200,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
           childNodeName = childNodeList[i]['w'];
           if (node.synonym) {
             console.log("Node is a synonym. Burrowing deeper.", node)
-            node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, patient, synonym, false);
+            node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, originalDate, patient, synonym, false);
             return (node);
           }
 
@@ -1205,7 +1225,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
           console.log("Does it match daily results? ", dailyResults[date]);
           // For Scenario 3, ASCCP isn't consider isotypes - just HPV positive or negative
           // and really only no HPV considered or HPV-positive - we're not matching on HPV-negative
-          if (ageInRange(dailyResults[date].age, node) && (node.procedure === dailyResults[date].pap &&
+          if (ageInRange(dailyResults[originalDate].age, node) && (node.procedure === dailyResults[date].pap &&
               (hpvIrrelevant || node.hpv ? HPVRESULT.hpvPositive : dailyResults[date].hpv.isInList(HPVRESULT.hpvPositive,
               HPVRESULT.hrhpvPositive, HPVRESULT.positive, HPVRESULT.detected, HPVRESULT.hpv16Positive, HPVRESULT.hpv18Positive))
               || node.procedure === 'Any') ) {
@@ -1246,7 +1266,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
 
             if (node.synonym) { // Synonyms (like "ASCUS/LSIL") don't need to match; they should hve just one child
               console.log(`It's a synonym. Burrowing downward in tree, with date ${date}.`)
-              node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, patient, true, false);
+              node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, originalDate, patient, true, false);
               if (node) {
                 return (node);
               }
@@ -1254,9 +1274,22 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
               console.log(`Does ${childNodeName} match with ${dailyResults[priorDate].pap}|${dailyResults[priorDate].hpv} - done on ${priorDate} - preColposcopy state ${preColposcopy}?`)
               console.log("Child node: ", node);
               console.log("Daily results: ", dailyResults[priorDate]);
-              if (node.procedure === dailyResults[priorDate].pap &&
-                  (node.hpv === dailyResults[priorDate].hpv || node.hpv === "Any") && !dailyResults[priorDate].colposcopy
-                  && node.preColposcopy === preColposcopy) {
+              if (dailyResults[priorDate].colposcopy) {
+                // let priorPriorDate = getPriorDate(dailyResults, priorDate);
+
+                // console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorPriorDate} and lower node.`)
+                console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorDate} and lower node.`)
+
+                console.log(`Children of child node ${childNodeName}:`);
+                console.log(scenarioTree.outEdges(childNodeName));
+
+                node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, originalDate, patient, false, true);
+                if (node) {
+                  return node;
+                }
+
+              } else if (node.procedure === dailyResults[priorDate].pap &&
+                  (node.hpv === dailyResults[priorDate].hpv || node.hpv === "Any") && node.preColposcopy === preColposcopy) {
                 console.log(`It does.`);
 
                 if (node.leaf && node.preColposcopy) {
@@ -1269,31 +1302,16 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
                   console.log(`Can we burrow further? (Not a leaf)`);
                   if (priorDate) {
                     console.log(`Yes (going to prior date ${priorDate})`)
-                    node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, patient, false, preColposcopy);
+                    node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, originalDate, patient, false, preColposcopy);
                     if (node) {
                       console.log("Came back from further burrowing with: ", node);
-
                       return (node);
                     }
                   } else {
                     console.log("Nope.")
                   }
                 }
-              } else if (dailyResults[priorDate].colposcopy) {
-                // let priorPriorDate = getPriorDate(dailyResults, priorDate);
-
-                // console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorPriorDate} and lower node.`)
-                console.log(`Date ${priorDate} is a colposcopy; burrowing downward before the colposcopy to prior date ${priorDate} and lower node.`)
-
-                console.log(`Children of child node ${childNodeName}:`);
-                console.log(scenarioTree.outEdges(childNodeName));
-
-                node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, priorDate, patient, false, true);
-                if (node) {
-                  return node;
-                }
-
-              } else {
+              }  else {
                 console.log("It doesn't match.");
               }
             }
@@ -1311,7 +1329,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
 
           // Check for synonym nodes and skip them
           if (node.synonym || childNodeName.startsWith('s|')) {
-            node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, patient);
+            node = burrow(scenarioTree, scenario, level, childNodeName, dailyResults, date, originalDate, patient, false, false);
             return (node);
           } else {
 
@@ -1319,7 +1337,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
             if ((node.procedure === dailyResults[date].pap) && ((node.hpv === dailyResults[date].hpv) || node.hpv === "Any") ||
                 (node.colposcopy === dailyResults[date].colposcopy)) {
               console.log("Found a potential match")
-              if (node.leaf && ageInRange(dailyResults[date].age, node)) {  // We matched a leaf
+              if (node.leaf && ageInRange(dailyResults[originalDate].age, node)) {  // We matched a leaf
                 console.log(`Burrow: matched ${childNodeName} at level ${level}, scenario ${scenario}`);
                 if (isNaN(node.cin3risk5y)) {
                   node.cin3risk5y = -1;
@@ -1328,7 +1346,7 @@ function burrow(scenarioTree, scenario, level, nodeName, dailyResults, date, pat
               } else {
                 console.log("Burrowing further")
                 if (priorDate) {
-                  node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, date, patient);
+                  node = burrow(scenarioTree, scenario, level + 1, childNodeName, dailyResults, date, originalDate, patient, false, false);
                   return (node);
                 } else {
                   return null;
@@ -1360,6 +1378,15 @@ function addFigure(figures, figure) {
   }
   figures.push(FIGURE[figure.toString()]);
 
+}
+
+// Sometimes we come back from a match with figures we need to add to an existing array
+function addFigureToMatch(figures, match) {
+  if (match) {
+    // match.figure = match.figure.concat(figures)
+    // Don't add duplicates
+    match.figure = [...new Set([...match.figure, ...figures])];
+    }
 }
 
 // Is there histologic HSIL on a given date?
@@ -1691,7 +1718,6 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, 
   notes.unreconciledData = isThereUnreconciledData(dailyResults, date);
 
 
-  date = originalDate;        // Start at the most recent result for each search
   match = {};
   match.figure = [];
 
@@ -1721,6 +1747,7 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, 
   }
 
   if (age < 25 && dailyResults[date].pap.isInList(PAPRESULT.ascus, PAPRESULT.lsil, PAPRESULT.asch, PAPRESULT.hsil)) {
+    // console.log('+++ Adding figure 12 to: ', figure)
     addFigure(figure, 12);
   }
 
@@ -1738,18 +1765,20 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, 
       nodeName = `${scenario}|${dailyResults[date].pap}|${dailyResults[date].hpv}`;
       console.log(`(e) Looking for ${nodeName}`);
 
-      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false, false);
+      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, originalDate, patient, false, false);
       console.log("(e) Came back from burrow with:", match)
-      if (match) {
-        match.figure = match.figure.concat(figure);
-      }
+      addFigureToMatch(figure, match)
+      // if (match) {
+      //   match.figure = match.figure.concat(figure);
+      // }
       break;
 
     case SCENARIO.postColposcopy:         // Scenario 3
       console.log(`makeRecommendations: Handling scenario ${scenario}, current result: ${dailyResults[date].colposcopy}`);
       nodeName = `${scenario}|${dailyResults[date].colposcopy}`
       console.log(`(c) Looking for match for scenario ${scenario}, node ${nodeName}`);
-      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false);
+      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, originalDate, patient, false);
+      addFigureToMatch(figure, match)
 
 
       break;
@@ -1765,10 +1794,11 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, 
 
       nodeName = `${scenario}|${papResult}|${hpvResult}`;
       console.log(`(5) Looking for ${nodeName}, age ${age}`);
-      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, patient, false)
-      if (match) {
-        match.figure = match.figure.concat(figure);
-      }
+      match = burrow(scenarioTree, scenario, 0, nodeName, dailyResults, date, originalDate, patient, false)
+      // if (match) {
+      //   match.figure = match.figure.concat(figure);
+      // }
+      addFigureToMatch(figure, match)
 
       break;
 
@@ -1806,7 +1836,8 @@ function makeRecommendations(patient, dailyResultsOriginal, scenarioTree, date, 
             if (childNode && (childNode.bxResult === dailyResults[date].colposcopy && ageInRange(age, childNode))) {
               match = scenarioTree.node(childNodeName);
 
-              match.figure = match.figure.concat(figure);
+              addFigureToMatch(figure, match)
+
 
             }
 
@@ -1900,44 +1931,71 @@ function getPatientResults() {
   // ];
 
   ccsResults = [
-    {date: '11/4/2020', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    {date: '11/4/2020', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
-    {date: '10/4/2015', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '10/4/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '6/6/2010', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    {date: '6/6/2010', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
-    {date: '6/18/2008', procedure: 'Colposcopy', result: 'Normal'},
-    {date: '5/15/2008', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '5/15/2008', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '5/15/2008', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '5/15/2008', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '1/20/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    {date: '1/20/2007', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '1/20/2007', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '1/20/2007', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '6/17/2006', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
-    {date: '6/17/2006', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '6/17/2006', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '6/17/2006', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '11/20/2005', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
-    {date: '11/20/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '11/20/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '11/20/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '5/18/2005', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '5/18/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '5/18/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '5/18/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '5/18/2005', procedure: 'Colposcopy', result: 'Normal'},
-    {date: '11/4/2004', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
-    {date: '11/4/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '11/4/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '11/4/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
-    {date: '9/5/2004', procedure: 'Colposcopy', result: 'CIN1'},
-    {date: '8/1/2004', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
-    {date: '8/1/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
-    {date: '8/1/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
-    {date: '8/1/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '12/9/2019', procedure: 'Pap Smear', result: 'ASC-US'},
+    {date: '12/9/2019', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '12/9/2019', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '12/9/2019', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '11/14/2018', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+    {date: '11/14/2018', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '11/14/2018', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '11/14/2018', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
+    {date: '11/14/2018', procedure: 'Colposcopy', result: 'Normal'},
+    {date: '2/14/2018', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '2/14/2018', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '2/14/2018', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '2/14/2018', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+    {date: '6/29/2015', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '4/18/2013', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '8/4/2010', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
+    {date: '8/4/2010', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+    {date: '8/4/2010', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+    {date: '8/4/2010', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+    {date: '12/4/2009', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '12/31/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '3/16/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+    {date: '2/26/2007', procedure: 'Pap Smear', result: 'Other', tz: 'Present'},
+    {date: '1/16/2003', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
   ];
+
+  // ccsResults = [
+  //   {date: '11/4/2020', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   {date: '11/4/2020', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+  //   {date: '10/4/2015', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '10/4/2015', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '6/6/2010', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   {date: '6/6/2010', procedure: 'HPV, HIGH RISK', result: 'Not Detected'},
+  //   {date: '6/18/2008', procedure: 'Colposcopy', result: 'Normal'},
+  //   {date: '5/15/2008', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '5/15/2008', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '5/15/2008', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '5/15/2008', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '1/20/2007', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   {date: '1/20/2007', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '1/20/2007', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '1/20/2007', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '6/17/2006', procedure: 'Pap Smear', result: 'NILM', tz: 'Present'},
+  //   {date: '6/17/2006', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '6/17/2006', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '6/17/2006', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '11/20/2005', procedure: 'Pap Smear', result: 'ASC-US', tz: 'Present'},
+  //   {date: '11/20/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '11/20/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '11/20/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '5/18/2005', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '5/18/2005', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '5/18/2005', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '5/18/2005', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '5/18/2005', procedure: 'Colposcopy', result: 'Normal'},
+  //   {date: '11/4/2004', procedure: 'Pap Smear', result: 'ASC-H', tz: 'Present'},
+  //   {date: '11/4/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '11/4/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '11/4/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  //   {date: '9/5/2004', procedure: 'Colposcopy', result: 'CIN1'},
+  //   {date: '8/1/2004', procedure: 'Pap Smear', result: 'LSIL', tz: 'Present'},
+  //   {date: '8/1/2004', procedure: 'HPV, HIGH RISK', result: 'Detected'},
+  //   {date: '8/1/2004', procedure: 'HPV GENOTYPE 16', result: 'Not Detected'},
+  //   {date: '8/1/2004', procedure: 'HPV GENOTYPE 18', result: 'Not Detected'},
+  // ];
 
   // Process the input to get the nomenclature to match the ASCCP spreadsheets
   // Combine all the HPV results from one date into one result
@@ -2015,7 +2073,7 @@ function getPatientResults() {
 
 function getPatient() {
   var patient = {
-    birthdate: '10/3/1954',
+    birthdate: '12/15/1986',
     pregnant: 0,
     immunocompromised: 0,
     age: 0
@@ -2074,7 +2132,16 @@ function splitCombinedResult(combinedResult) {
       return [PAPRESULT.lsil, HPVRESULT.hpvPositive];
     case 'HPV-negative/ASCUS/LSIL':
       return [[PAPRESULT.ascus, PAPRESULT.lsil], HPVRESULT.hpvNegative];
-
+    case 'NILM':  // No co-testing (used in supplemental Excel table 2)
+      return [PAPRESULT.nilm, ''];
+    case 'ASC-US':  // No co-testing (used in supplemental Excel table 2)
+      return [PAPRESULT.ascus, ''];
+    case 'ASC-US/Any':  // (used in supplemental Excel table 2)
+      return [PAPRESULT.ascus, 'Any'];
+    case 'LSIL':  // No co-testing (used in supplemental Excel table 2)
+      return [PAPRESULT.lsil, ''];
+    case 'Any':
+      return ['Any', 'Any'];
     default:
       return ['', ''];
 
@@ -2203,6 +2270,10 @@ function makeScenarioTree(scenarioTable) {
             }
           }
 
+          if (scenarioTable[i][0][j]['Figure']) {
+            addFigure(figure, scenarioTable[i][0][j]['Figure'])
+          }
+
           // Handle HPV result of Any during interpretation step
 
           if (papResult === PAPRESULT.ais) {
@@ -2272,7 +2343,7 @@ function makeScenarioTree(scenarioTable) {
 
 
           addPregnancyColpoTxWarning(pregnancy, management);
-          console.log("Pregnancy warning: ", pregnancy);
+          // console.log("Pregnancy warning: ", pregnancy);
 
           // Handle the first sub-node
           [papResult, hpvResult] = splitCombinedResult(scenarioTable[i][0][j]['PAST HISTORY (most recent)']);
@@ -2301,11 +2372,13 @@ function makeScenarioTree(scenarioTable) {
 
           nodeName = `${i}-${j}-${k++}|${node.procedure}|${node.hpv}`;
           if (!tree.hasNode(nodeName)) {
+            console.log(`Scenario 1/2: making ${nodeName}`);
             tree.setNode(nodeName, node);
           }
+
           tree.setEdge(previousNodeName, nodeName);
-          // console.log(`Made ${nodeName} a child of of ${previousNodeName}`);
-          // console.log(tree.children(previousNodeName))
+          console.log(`Made ${nodeName} a child of ${previousNodeName}`);
+          console.log(tree.children(previousNodeName))
           previousNodeName = nodeName;
 
           // Handle the second sub-node if needed
